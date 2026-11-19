@@ -6,3 +6,10 @@ export const OBF_PROFILES = ['none', 'rtpopus', 'rtpopus2', 'rtpopus3'] as const
 export const TRANSPORTS = ['tcp', 'udp'] as const
 export const MODES = ['udp', 'tcp'] as const
 export const DNS_MODES = ['auto', 'plain', 'doh'] as const
+
+// Kept here until native Wails regeneration; avoids editing existing generated work.
+export interface ContainerInstance { id: string; name: string; image: string; running: boolean; supported: boolean }
+export const SetupAttachContainer = (cfg: import('../wailsjs/go/models').serversetup.SSHConfig, id: string, name: string): Promise<import('../wailsjs/go/models').backend.Server> =>
+  (window as any).go.main.App.SetupAttachContainer(cfg, id, name)
+export const SetupCreateContainer = (cfg: import('../wailsjs/go/models').serversetup.SSHConfig, draft: import('../wailsjs/go/models').backend.ServerSetupDraft, wgPort: number, name: string): Promise<import('../wailsjs/go/models').backend.Server> =>
+  (window as any).go.main.App.SetupCreateContainer(cfg, draft, wgPort, name)

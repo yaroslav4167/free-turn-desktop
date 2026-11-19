@@ -76,10 +76,8 @@ type CoreLog struct {
 	Debug bool `json:"debug"`
 }
 
-// CoreTunnel is the embedded userspace WireGuard tunnel section - populated
-// only in ConnModeVPN. "wg" (not "awg"): the disguise already happens one
-// layer down, in the TURN relay's obfuscation profile, so the WG layer itself
-// runs plain (matches how the server-control script's wg-setup provisions it).
+// CoreTunnel configures the embedded WireGuard tunnel. AmneziaWG settings
+// from the profile are independent of the TURN relay's obfuscation settings.
 type CoreTunnel struct {
 	Mode   string `json:"mode"`
 	Config string `json:"config"`
@@ -136,5 +134,7 @@ func (s Server) tunnelConfig() CoreTunnel {
 	if s.ConnMode != ConnModeVPN || s.WgClientConf == "" {
 		return CoreTunnel{}
 	}
-	return CoreTunnel{Mode: "wg", Config: s.WgClientConf, MTU: DefaultTunnelMTU}
+	// Like Android, preserve profile-supplied AmneziaWG parameters. An
+	// ordinary WireGuard profile still uses plain WireGuard on the wire.
+	return CoreTunnel{Mode: "awg", Config: s.WgClientConf, MTU: DefaultTunnelMTU}
 }

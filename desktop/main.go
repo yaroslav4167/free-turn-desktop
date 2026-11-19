@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 
 	appassets "github.com/samosvalishe/free-turn-proxy/desktop/assets"
@@ -132,6 +133,9 @@ func main() {
 }
 
 func applicationMenu() *menu.Menu {
+	if runtime.GOOS != "darwin" {
+		return nil
+	}
 	result := menu.NewMenu()
 	result.Append(menu.AppMenu())
 	result.Append(menu.EditMenu())

@@ -17,7 +17,7 @@ type Packet struct {
 
 // packetPool переиспользует буферы датаграмм.
 var packetPool = sync.Pool{
-	New: func() any { return &Packet{Data: make([]byte, 2048)} },
+	New: func() any { return &Packet{Data: make([]byte, maxDatagramLen)} },
 }
 
 // runListener читает входящие датаграммы и распределяет их в очередь inboundChan.
@@ -32,6 +32,7 @@ func runListener(ctx context.Context, listenConn net.PacketConn, activeLocalPeer
 		pkt := pktIface.(*Packet) //nolint:errcheck // pool New always returns *Packet
 		nRead, addr, err := listenConn.ReadFrom(pkt.Data)
 		if err != nil {
+			packetPool.Put(pkt)
 			return
 		}
 

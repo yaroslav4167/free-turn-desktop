@@ -8,16 +8,20 @@ import (
 
 // ProbeResult is the UI-friendly subset of cmd_probe's output the wizard needs.
 type ProbeResult struct {
-	ExistingService string `json:"existingService"`
-	Version         string `json:"version"`
-	HostFingerprint string `json:"hostFingerprint"`
-	Installed       bool   `json:"installed"`
-	Running         bool   `json:"running"`
+	Containers      []ContainerInstance `json:"containers"`
+	ExistingService string              `json:"existingService"`
+	Version         string              `json:"version"`
+	HostFingerprint string              `json:"hostFingerprint"`
+	Installed       bool                `json:"installed"`
+	Running         bool                `json:"running"`
 	// WgPort is 0 when probe found no existing managed WireGuard interface.
 	WgPort int `json:"wgPort"`
 }
 
 func Probe(cfg SSHConfig) (*ProbeResult, error) {
+	if cfg.Manager == HackdiazDocker {
+		return probeDocker(cfg)
+	}
 	resp, fp, err := runControl(cfg, []string{"probe"})
 	if err != nil {
 		return nil, err
@@ -33,7 +37,13 @@ func Probe(cfg SSHConfig) (*ProbeResult, error) {
 	if data.Wg.Port != nil {
 		port = *data.Wg.Port
 	}
-	return &ProbeResult{HostFingerprint: fp, Installed: data.Installed, Running: data.Running, WgPort: port, ExistingService: data.ExistingService, Version: data.Version}, nil
+	// Pin discovery to the key observed by the control probe.
+	cfg.HostFingerprint = fp
+	containers, err := dockerInstances(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &ProbeResult{Containers: containers, HostFingerprint: fp, Installed: data.Installed || len(containers) > 0, Running: data.Running, WgPort: port, ExistingService: data.ExistingService, Version: data.Version}, nil
 }
 
 // InstallResult mirrors cmd_install's output.
@@ -48,6 +58,9 @@ type InstallResult struct {
 // server itself can't reach GitHub, the binary is downloaded on this machine
 // and uploaded over SSH instead (see upload.go).
 func Install(cfg SSHConfig, onProgress func(string)) (*InstallResult, error) {
+	if err := refuseDockerDeployment(cfg); err != nil {
+		return nil, err
+	}
 	resp, _, err := runControlDetached(cfg, []string{"install"}, onProgress)
 	if err != nil {
 		return nil, err
@@ -82,6 +95,9 @@ type WgSetupResult struct {
 // desktop client's own local listen address (e.g. 127.0.0.1:9000) since this
 // conf is meant to be pointed at the local relay, not at the VPS directly.
 func WgSetup(cfg SSHConfig, port int, endpoint string, onProgress func(string)) (*WgSetupResult, error) {
+	if err := refuseDockerDeployment(cfg); err != nil {
+		return nil, err
+	}
 	argv := []string{"wg-setup", fmt.Sprintf("--port=%d", port), "--endpoint=" + endpoint}
 	resp, _, err := runControlDetached(cfg, argv, onProgress)
 	if err != nil {
@@ -119,6 +135,12 @@ type StartOptions struct {
 // Start (re)starts the free-turn-proxy server with the given flags and, when
 // ClientID is set, seeds it as the first allowed owner in clients.json.
 func Start(cfg SSHConfig, opts StartOptions, onProgress func(string)) error {
+	if cfg.Manager == HackdiazDocker {
+		return dockerLifecycle(cfg, "restart")
+	}
+	if err := refuseDockerDeployment(cfg); err != nil {
+		return err
+	}
 	argv := []string{"start", "--listen=" + opts.Listen, "--connect=" + opts.Connect}
 	if opts.ObfProfile != "" && opts.ObfProfile != "none" && opts.ObfKey != "" {
 		argv = append(argv, "--obf-profile="+opts.ObfProfile, "--obf-key="+opts.ObfKey)
@@ -140,6 +162,9 @@ func Start(cfg SSHConfig, opts StartOptions, onProgress func(string)) error {
 }
 
 func Stop(cfg SSHConfig) error {
+	if cfg.Manager == HackdiazDocker {
+		return dockerLifecycle(cfg, "stop")
+	}
 	resp, _, err := runControl(cfg, []string{"stop"})
 	if err != nil {
 		return err
@@ -154,6 +179,19 @@ func Stop(cfg SSHConfig) error {
 func Logs(cfg SSHConfig, tail int) ([]string, error) {
 	if tail <= 0 {
 		tail = 80
+	}
+	if cfg.Manager == HackdiazDocker {
+		r, err := dockerRPC(cfg, "logs", fmt.Sprintf("--tail=%d", tail))
+		if err != nil {
+			return nil, err
+		}
+		var d struct {
+			Lines []string `json:"lines"`
+		}
+		if err := json.Unmarshal(r.Data, &d); err != nil {
+			return nil, err
+		}
+		return d.Lines, nil
 	}
 	resp, _, err := runControl(cfg, []string{"logs", fmt.Sprintf("--tail=%d", tail)})
 	if err != nil {
@@ -187,6 +225,12 @@ type UninstallRemoved struct {
 // systemd unit, the managed ft-wg0 interface) - it never touches a foreign
 // WireGuard setup or a live ip_forward sysctl (see Kept in the result).
 func Uninstall(cfg SSHConfig, withWgPkg, dryRun bool, onProgress func(string)) (*UninstallResult, error) {
+	if cfg.Manager == HackdiazDocker {
+		return nil, fmt.Errorf("удаляйте общую установку через её исходный установщик: она используется другими устройствами")
+	}
+	if err := refuseDockerDeployment(cfg); err != nil {
+		return nil, err
+	}
 	argv := []string{"uninstall"}
 	if withWgPkg {
 		argv = append(argv, "--with-wg-pkg")

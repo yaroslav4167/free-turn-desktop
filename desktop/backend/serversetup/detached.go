@@ -109,6 +109,9 @@ func jobCommand(cfg SSHConfig, script string, args ...string) string {
 // above) and returns its envelope, like runControl. onProgress, if set, gets the
 // script's log lines as they happen.
 func runControlDetached(cfg SSHConfig, argv []string, onProgress func(string)) (*ControlResponse, string, error) {
+	if cfg.Manager != "" {
+		return nil, "", fmt.Errorf("legacy control is disabled for manager %q", cfg.Manager)
+	}
 	return runDetached(cfg, controlScript, argv, onProgress)
 }
 

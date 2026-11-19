@@ -1,67 +1,76 @@
-# FreeTurn for macOS
+# FreeTurn Desktop
 
-Native macOS desktop VPN client based on [FreeTurn Linux](https://github.com/yaroslav4167/free-turn-linux/tree/feat/linux-desktop-experience) v2.6.5 (`09ab3f9`). The shared Wails/React UI includes profiles, server setup and management, WireGuard/AmneziaWG through TURN, routing lists, traffic charts, centered notifications, and Russian/English localization.
+One desktop client and release stream for **Windows, Linux and macOS**.
+Based on [FreeTurn Proxy](https://github.com/hackdiaz-dev/free-turn-proxy), with
+the native integrations and history of the three desktop forks preserved.
 
-## Download and install
+## Downloads
 
-Download the ZIP for your Mac from [Releases](https://github.com/yaroslav4167/free-turn-macos/releases): `arm64` for Apple Silicon or `amd64` for Intel. Requires macOS 13+. Extract the ZIP and drag **FreeTurn.app** to **Applications**. Check the archive against `checksums.txt` with `shasum -a 256`.
+[Releases](https://github.com/yaroslav4167/free-turn-desktop/releases/latest)
+contain all four native builds and a shared `checksums.txt`:
 
-Initial builds are ad-hoc signed and are not notarized by Apple. After attempting to open a downloaded app, macOS may require explicit approval in System Settings → Privacy & Security → Open Anyway. No global Gatekeeper changes are needed.
+| Platform | Archive | Installation |
+| --- | --- | --- |
+| Linux amd64 | `FreeTurn-Linux-amd64-v*.tar.gz` | Extract and run `./install-desktop.sh` |
+| Windows amd64 | `FreeTurn-Windows-amd64-v*.zip` | Extract and run `Install.cmd` |
+| macOS Apple Silicon | `FreeTurn-macOS-arm64-v*.zip` | Move `FreeTurn.app` to Applications |
+| macOS Intel | `FreeTurn-macOS-amd64-v*.zip` | Move `FreeTurn.app` to Applications |
 
-The first macOS version is experimental: automated builds and tests do not replace a live VPN acceptance test against your server.
+Verify the archive's SHA-256 against `checksums.txt`. macOS requires 13+;
+builds are ad-hoc signed, not Apple-notarized. No global Gatekeeper changes
+are needed. See [macOS helper and permissions](docs/macos.md).
 
-## VPN and permissions
+## Features
 
-Import a profile or add a server, including its WireGuard/AmneziaWG client configuration. On the first VPN connection, macOS requests administrator authorization to install a persistent, per-user VPN helper. Subsequent connections use the installed service without another password prompt, including after restarting FreeTurn or macOS. The app interface and VPN protocol engine run without root.
+- WireGuard/AmneziaWG through TURN, with native Linux helper, Windows Wintun,
+  and macOS utun/launchd helper.
+- Animated connection control, independent captcha prompts, traffic charts,
+  ping, per-profile routing lists and server/client management over SSH.
+- Russian/English JSON localization, startup/auto-connect, tray/menu-bar
+  integration, verified updates with explicit confirmation and rollback.
+- Reuse of supported hackdiaz Docker servers with a distinct profile for each
+  device. No automatic server reinstall or restart during attachment.
 
-The helper creates an available `utun`, configures addresses and routes, and transfers its descriptor over a private authenticated Unix socket. The relay's sockets are bound to the physical interface. Before enabling VPN routes, the helper ensures a scoped default through the physical gateway for those sockets; existing scoped defaults are retained and only helper-owned routes are removed on disconnect. Ordinary traffic, including SSH server management, follows profile routes. Full-tunnel routes are installed as two more-specific halves; the physical default routes are preserved.
+See [shared Docker setup](docs/shared-docker-server.md) and
+[localization](docs/localization.md). Existing unknown server installations
+are never adopted or overwritten automatically.
 
-DNS is a temporary SystemConfiguration session entry. Closing or losing the helper removes that entry, rather than permanently rewriting Wi-Fi DNS settings. Disconnect/quit removes routes added by the helper. A second VPN owning the default route is rejected; disconnect it before connecting FreeTurn.
+## Migrating from the separate repositories
 
-The root-owned helper is copied into `/Library/PrivilegedHelperTools/org.freeturn.vpn.<UID>` and managed by a per-user plist in `/Library/LaunchDaemons`. Only the installing user can connect through its private Unix socket; no executable from a user-writable app folder is run as root on subsequent connections. There is no password storage or change to sudo authorization. The service remains idle without an active VPN session, and disconnect releases session routes/DNS. GUI updates retain the installed helper while its protocol remains compatible. A newer required helper protocol triggers a one-time system-helper upgrade on connection, with administrator approval. v0.2.2 requires this upgrade from v0.2.1 to add cancellation of interrupted setup. The helper uses Interactive launchd scheduling for user-requested VPN setup, avoiding Background CPU/I/O throttling. Initialization allows 45 seconds in the helper and 60 seconds on the client, so slower utun setup is not interrupted by the old 15-second limit. Closing the client cancels in-flight setup and route commands before releasing the session.
+Install the final bridge release from your existing client's update screen:
 
-To repair the helper, disconnect VPN and run the app executable with `--configure-vpn-helper`. To remove the service before deleting the app:
+- Linux: **v2.6.6** in `yaroslav4167/free-turn-linux`.
+- Windows: **v1.1.4** in `yaroslav4167/free-turn-windows`.
+- macOS: **v0.2.3** in `yaroslav4167/free-turn-macos`.
+
+That build changes the update source to this repository. Its next update is
+the shared **v3.0.0**, selecting only the archive for the current platform and
+architecture. Manual installation from this repository also works. Profiles,
+preferences and installed-helper identities keep their existing storage paths.
+Old tags and downloads remain available; old repositories are not deleted.
+Server installations on VPSs are not migrated, restarted or removed by this
+desktop-repository migration.
+
+## Building
+
+Use the Go version in `go.mod` and Node.js 22.18+. Build on the target OS:
 
 ```sh
-"/Applications/FreeTurn.app/Contents/MacOS/freeturn-desktop" --remove-vpn-helper
+# Linux: GTK3 and WebKit2GTK 4.1 development packages are required.
+VERSION=v3.0.0 sh packaging/linux/build-desktop.sh
+
+# macOS: Xcode Command Line Tools are required.
+RELEASE_TAG=v3.0.0 sh packaging/macos/build-desktop.sh
 ```
 
-Removal requests administrator approval and revokes only this user's helper access. No third-party TUN driver is installed.
+On Windows, run `packaging/windows/build-desktop.ps1` from PowerShell 7 with
+Wails' native Windows build prerequisites installed. Set `RELEASE_TAG` for the
+build version. `UPDATE_REPOSITORY` defaults to this repository on all platforms.
 
-## Desktop integration
-
-**FT** in the menu bar opens or quits FreeTurn. Close-to-menu-bar, start at login and optional auto-connect are available in Settings. Start at login requires the app to be in `/Applications` or `~/Applications`; macOS may show it under Login Items. Captcha notifications ask for notification permission, and open verification only after a click. The in-app notification remains available if system notifications are denied.
-
-FreeTurn checks this repository for updates automatically. In Settings, choose **Download and install** and confirm the restart. The updater verifies the SHA-256 checksum, native architecture and complete bundle signature, disconnects the VPN, replaces the entire app including its helper, and restarts it. If the new interface fails to start, the previous version is restored. Profiles and preferences are retained.
-
-When upgrading from v0.1.x, install v0.2.2 manually once to enable in-app installation. v0.2.0 can install this release from Settings. Keep FreeTurn.app in `/Applications` or `~/Applications`; your account must be able to write to that folder. If a managed Applications folder is protected, use `~/Applications` or install manually. Installation always requires confirmation. The previous bundle and update logs are retained in a private `.freeturn-mac-update-*` folder beside the app; its location is included in the update result.
-
-Profiles and preferences are stored in `~/Library/Application Support/FreeTurnDesktop`. To uninstall, disconnect VPN, remove the helper as described above, disable start at login in Settings, quit FreeTurn, and move its bundle to Trash. Removing the app retains profiles.
-
-## Build
-
-Install Xcode Command Line Tools, the Go version in `go.mod`, and Node.js 22.18+.
-
-```sh
-UPDATE_REPOSITORY=yaroslav4167/free-turn-macos RELEASE_TAG=v0.2.2 sh packaging/macos/build-desktop.sh
-```
-
-The script builds Wails v2.16.0, packages the native VPN helper inside the app, ad-hoc signs the bundle, verifies its signature, and produces a ZIP and SHA-256 in `dist/`. `MACOS_ARCH=arm64` or `MACOS_ARCH=amd64` selects the architecture. GitHub Actions builds and tests each architecture on its own macOS runner.
-
-```sh
-npm --prefix desktop/frontend ci
-npm --prefix desktop/frontend test
-npm --prefix desktop/frontend run build
-go test ./desktop/... ./internal/session ./mobile
-go test -race ./desktop/backend/... ./desktop/integration ./desktop/updates
-go vet ./desktop/... ./cmd/macos-vpn-helper
-```
-
-Core sources and Linux packaging remain for upstream compatibility. No Apple Developer ID credentials or notarization service are configured.
-
-## Shared interface examples
-
-The inherited screenshots illustrate the shared UI; they are Linux captures, not macOS screenshots.
+GitHub Actions builds on Ubuntu 22.04, Windows, Apple Silicon and Intel macOS,
+runs native tests, and publishes only after **all four** builds pass and every
+archive checksum is verified. Native CI is not a live VPN acceptance test on
+every network. See [release notes](RELEASE_NOTES_DESKTOP.md).
 
 ![Connection](docs/screenshots/connection.png)
 ![Servers](docs/screenshots/servers.png)
@@ -69,4 +78,6 @@ The inherited screenshots illustrate the shared UI; they are Linux captures, not
 
 ## License
 
-See [LICENSE](LICENSE). Upstream attribution and commit history are retained.
+See [LICENSE](LICENSE). Original upstream and desktop-fork histories and
+attribution are retained. The Go module path is intentionally unchanged to
+preserve existing imports and linker targets.

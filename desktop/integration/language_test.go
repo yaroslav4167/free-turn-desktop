@@ -29,6 +29,7 @@ func TestSystemLanguagePrecedenceAndFallback(t *testing.T) {
 
 func TestLanguagePreferenceMigrationAndPersistence(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("APPDATA", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	prefs, err := LoadPreferences()
 	if err != nil || prefs.Language != "system" {

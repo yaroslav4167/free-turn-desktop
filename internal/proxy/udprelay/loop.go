@@ -21,6 +21,12 @@ import (
 // backoff тут только удлиняет простой.
 var errPairRecycled = errors.New("udprelay: stream pair recycled")
 
+const (
+	pipeBufLimit   = 256 << 10
+	maxDatagramLen = 2048
+	maxRecordLen   = maxDatagramLen + 64 // DTLS framing is in addition to WG/AWG data.
+)
+
 // streamPair связывает DTLS-сессию с аллокацией, поверх которой она поднята. Смерть
 // аллокации обязана ронять DTLS: у новой аллокации другой relayed-адрес, а миграция
 // адреса по DTLS Connection ID под obf-профилем на сервере не работает - сервер примет
@@ -28,6 +34,7 @@ var errPairRecycled = errors.New("udprelay: stream pair recycled")
 type streamPair struct {
 	pipe   net.PacketConn
 	cancel context.CancelFunc
+	ready  chan struct{} // closed by TURN once the allocation can carry DTLS
 }
 
 // DTLSLoop поддерживает и перезапускает DTLS-соединение для указанного streamID.
@@ -41,6 +48,9 @@ func DTLSLoop(ctx context.Context, deps *Deps, params *Params, peer *net.UDPAddr
 			// Пара пересоздаётся под новую аллокацию - TURN-цикл уже держит свою паузу.
 			if errors.Is(err, errPairRecycled) {
 				continue
+			}
+			if err != nil && ctx.Err() == nil {
+				deps.log().Warnf("[STREAM %d] %v", streamID, err)
 			}
 			if err != nil && time.Now().Unix() < deps.Auth.BackoffUntilUnix() && errors.Is(err, context.DeadlineExceeded) {
 				select {
@@ -72,7 +82,7 @@ func TURNLoop(ctx context.Context, deps *Deps, params *Params, peer *net.UDPAddr
 				return
 			}
 			c := make(chan error, 1)
-			go deps.guard(func() { oneTURN(ctx, deps, params, peer, pair.pipe, streamID, c) })()
+			go deps.guard(func() { oneTURN(ctx, deps, params, peer, pair, streamID, c) })()
 
 			var err error
 			select {
@@ -137,15 +147,26 @@ func dtlsSession(dtlsctx context.Context, dtlscancel context.CancelFunc, deps *D
 		return dtlsctx.Err()
 	}
 
-	conn1, conn2 := connutil.AsyncPacketPipe()
+	conn1, conn2 := connutil.LimitedAsyncPacketPipe(pipeBufLimit)
 	defer func() { _ = conn1.Close() }()
 	defer func() { _ = conn2.Close() }()
 	// Ровно один раз: пара строго 1:1, иначе следующая аллокация села бы на DTLS, который
 	// уже сворачивают. Отдаём до handshake - его пакеты идут через эту же аллокацию.
+	pair := streamPair{pipe: conn2, cancel: dtlscancel, ready: make(chan struct{})}
 	select {
-	case connchan <- streamPair{pipe: conn2, cancel: dtlscancel}:
+	case connchan <- pair:
 	case <-dtlsctx.Done():
 		return dtlsctx.Err()
+	}
+	// Do not spend the DTLS handshake deadline waiting for VK credentials,
+	// allocation pacing, or the TURN Allocate response.
+	select {
+	case <-pair.ready:
+	case <-dtlsctx.Done():
+		return dtlsctx.Err()
+	}
+	if err := dtlsctx.Err(); err != nil {
+		return err
 	}
 	dtlsRaw, err1 := deps.DTLSDialer.Dial(dtlsctx, conn1, peer)
 	if err1 != nil {
@@ -161,6 +182,10 @@ func dtlsSession(dtlsctx context.Context, dtlscancel context.CancelFunc, deps *D
 	if err := clientsdb.WriteClientID(dtlsConn, params.ClientID, clientsdb.ModeUDP); err != nil {
 		return fmt.Errorf("failed to write client ID: %w", err)
 	}
+	// A TURN allocation alone cannot carry application traffic. Legacy
+	// servers do not acknowledge the ID, so this is not proof of admission.
+	deps.ConnectedStreams.Add(1)
+	defer deps.ConnectedStreams.Add(-1)
 	if okchan != nil {
 		select {
 		case okchan <- struct{}{}:
@@ -171,7 +196,7 @@ func dtlsSession(dtlsctx context.Context, dtlscancel context.CancelFunc, deps *D
 	forwardDone := make(chan struct{})
 	go func() {
 		defer close(forwardDone)
-		var buf [2048]byte
+		var buf [maxDatagramLen]byte
 		for {
 			n, err := dtlsConn.Read(buf[:])
 			if err != nil {
@@ -208,7 +233,8 @@ func dtlsSession(dtlsctx context.Context, dtlscancel context.CancelFunc, deps *D
 	}
 }
 
-func oneTURN(ctx context.Context, deps *Deps, params *Params, peer *net.UDPAddr, conn2 net.PacketConn, streamID int, c chan<- error) {
+func oneTURN(ctx context.Context, deps *Deps, params *Params, peer *net.UDPAddr, pair streamPair, streamID int, c chan<- error) {
+	conn2 := pair.pipe
 	var err error
 	defer func() {
 		c <- err
@@ -232,7 +258,6 @@ func oneTURN(ctx context.Context, deps *Deps, params *Params, peer *net.UDPAddr,
 		deps.log().Debugf("[STREAM %d] obf-timing=%s", streamID, params.ObfTiming)
 	}
 
-	deps.ConnectedStreams.Add(1)
 	deps.Auth.ResetErrors(streamID)
 
 	relayedAddr := relayConn.LocalAddr().String()
@@ -240,7 +265,6 @@ func oneTURN(ctx context.Context, deps *Deps, params *Params, peer *net.UDPAddr,
 		streamID, relayedAddr, stream.ServerUDPAddr.IP)
 
 	defer func() {
-		deps.ConnectedStreams.Add(-1)
 		// Освобождение аллокации логируем всегда: недошедший deallocate держит квоту VK
 		// до конца её lifetime, и следующий Allocate ловит 486.
 		cerr := stream.Close()
@@ -265,11 +289,9 @@ func oneTURN(ctx context.Context, deps *Deps, params *Params, peer *net.UDPAddr,
 	var internalPipeAddr atomic.Value
 	obfConn, obfErr := wire.NewClientCodec(params.Profile, params.ObfKey)
 	if obfErr != nil {
-		deps.log().Errorf("[STREAM %d] OBF init failed: %v", streamID, obfErr)
+		err = fmt.Errorf("OBF init failed: %w", obfErr)
 		return
 	}
-
-	const maxPayload = 1600
 
 	wg.Go(func() {
 		select {
@@ -289,10 +311,10 @@ func oneTURN(ctx context.Context, deps *Deps, params *Params, peer *net.UDPAddr,
 		defer turncancel()
 		var buf, readSlot []byte
 		if obfConn != nil {
-			buf = make([]byte, obfConn.MaxWire(maxPayload))
-			readSlot = buf[obfConn.HeaderLen() : obfConn.HeaderLen()+maxPayload]
+			buf = make([]byte, obfConn.MaxWire(maxRecordLen))
+			readSlot = buf[obfConn.HeaderLen() : obfConn.HeaderLen()+maxRecordLen]
 		} else {
-			buf = make([]byte, maxPayload)
+			buf = make([]byte, maxRecordLen)
 			readSlot = buf
 		}
 		addrStored := false
@@ -335,9 +357,9 @@ func oneTURN(ctx context.Context, deps *Deps, params *Params, peer *net.UDPAddr,
 
 	wg.Go(func() {
 		defer turncancel()
-		readBufLen := maxPayload
+		readBufLen := maxRecordLen
 		if obfConn != nil {
-			readBufLen = obfConn.MaxWire(maxPayload)
+			readBufLen = obfConn.MaxWire(maxRecordLen)
 		}
 		buf := make([]byte, readBufLen)
 		for {
@@ -370,6 +392,7 @@ func oneTURN(ctx context.Context, deps *Deps, params *Params, peer *net.UDPAddr,
 		}
 	})
 
+	close(pair.ready)
 	wg.Wait()
 	if err := relayConn.SetDeadline(time.Time{}); err != nil {
 		deps.log().Errorf("Failed to clear relay deadline: %s", err)

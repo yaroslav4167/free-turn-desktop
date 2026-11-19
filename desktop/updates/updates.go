@@ -76,7 +76,7 @@ func New(version, arch, repository string) *Manager {
 		repository = ""
 	}
 	return &Manager{
-		state: State{CurrentVersion: version, CurrentKnown: known, Repository: repository}, arch: arch, repository: repository,
+		state: State{CurrentVersion: version, CurrentKnown: known, Repository: repository}, arch: arch, repository: repository, platform: "linux",
 		apiURL: "https://api.github.com/repos/" + repository + "/releases/latest",
 		client: &http.Client{CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
@@ -88,6 +88,12 @@ func New(version, arch, repository string) *Manager {
 			return nil
 		}},
 	}
+}
+
+func NewForPlatform(version, arch, repository, platform string) *Manager {
+	m := New(version, arch, repository)
+	m.platform = platform
+	return m
 }
 
 func (m *Manager) State() State {
@@ -393,13 +399,10 @@ func newer(latest, current string) bool {
 	return false
 }
 
-// NewForPlatform selects native archive naming without changing legacy Linux callers.
-func NewForPlatform(version, arch, repository, platform string) *Manager {
-	m := New(version, arch, repository)
-	m.platform = platform
-	return m
-}
 func (m *Manager) archiveName(version string) string {
+	if m.platform == "windows" {
+		return "FreeTurn-Windows-" + m.arch + "-" + version + ".zip"
+	}
 	if m.platform == "darwin" {
 		return "FreeTurn-macOS-" + m.arch + "-" + version + ".zip"
 	}

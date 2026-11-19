@@ -15,6 +15,8 @@ const (
 // and HostFingerprint are discovered during the wizard (DetectRootMode/Probe)
 // and then carried forward into later calls for the same run.
 type SSHConfig struct {
+	// Manager selects the existing installation; empty means the desktop runtime.
+	Manager         string `json:"manager,omitempty"`
 	IP              string `json:"ip"`
 	Port            int    `json:"port"`
 	Username        string `json:"username"`

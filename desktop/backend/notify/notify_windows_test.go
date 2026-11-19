@@ -3,6 +3,7 @@
 package notify
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -12,9 +13,9 @@ func TestShowCaptchaNotificationThrottling(t *testing.T) {
 	lastCaptchaTime = time.Time{}
 	captchaMu.Unlock()
 
-	called := 0
+	var called atomic.Int32
 	onOpen := func() {
-		called++
+		called.Add(1)
 	}
 
 	_ = ShowCaptchaNotification("https://example.com/captcha", onOpen)
@@ -26,8 +27,8 @@ func TestShowCaptchaNotificationThrottling(t *testing.T) {
 	}
 
 	time.Sleep(50 * time.Millisecond)
-	if called != 0 {
-		t.Fatalf("showing notifications must not open the browser, called %d times", called)
+	if got := called.Load(); got != 0 {
+		t.Fatalf("showing notifications must not open the browser, called %d times", got)
 	}
 }
 

@@ -231,6 +231,53 @@ func (a *App) SetupProbe(cfg serversetup.SSHConfig) (*serversetup.ProbeResult, e
 	return serversetup.Probe(cfg)
 }
 
+// SetupAttachContainer registers a distinct device on the selected existing
+// installation, without installing, updating or restarting its server.
+func (a *App) SetupAttachContainer(cfg serversetup.SSHConfig, id, deviceName string) (backend.Server, error) {
+	link, err := serversetup.AttachDocker(cfg, id, deviceName)
+	if err != nil {
+		return backend.Server{}, err
+	}
+	parsed, err := backend.ParseShareLink(link)
+	if err != nil {
+		return backend.Server{}, fmt.Errorf("контейнер вернул некорректную ссылку клиента")
+	}
+	srv := parsed.ApplyTo(backend.DefaultServer())
+	if srv.WgClientConf == "" || srv.ClientID == "" {
+		return backend.Server{}, fmt.Errorf("контейнер не вернул полный VPN-профиль")
+	}
+	cfg.Manager = serversetup.HackdiazDocker
+	srv.SSH = &cfg
+	srv.Name = cfg.IP
+	return a.store.Save(srv)
+}
+
+func (a *App) SetupCreateContainer(cfg serversetup.SSHConfig, draft backend.ServerSetupDraft, wgPort int, deviceName string) (backend.Server, error) {
+	if err := serversetup.CreateDocker(cfg, draft.ListenPort, wgPort, draft.ObfProfile, draft.ObfKey, a.setupProgress); err != nil {
+		return backend.Server{}, err
+	}
+	p, err := serversetup.Probe(cfg)
+	if err != nil {
+		return backend.Server{}, err
+	}
+	for _, c := range p.Containers {
+		if c.Supported && c.Running {
+			srv, err := a.SetupAttachContainer(cfg, c.ID, deviceName)
+			if err != nil {
+				return backend.Server{}, err
+			}
+			if draft.Name != "" {
+				srv.Name = draft.Name
+			}
+			if draft.VKLink != "" {
+				srv.VKLinks = []string{draft.VKLink}
+			}
+			return a.store.Save(srv)
+		}
+	}
+	return backend.Server{}, fmt.Errorf("новый контейнер не найден; повторите проверку VPS")
+}
+
 func (a *App) SetupInstall(cfg serversetup.SSHConfig) (*serversetup.InstallResult, error) {
 	return serversetup.Install(cfg, a.setupProgress)
 }

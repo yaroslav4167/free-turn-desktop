@@ -1,16 +1,81 @@
-name: Build macOS desktop
+name: Native desktop builds
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
 permissions:
   contents: read
-concurrency:
-  group: macos-build-${{ github.ref }}
-  cancel-in-progress: true
 jobs:
-  build-macos:
+  linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-go@v6.4.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 22
+      - run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config
+      - name: Build Linux archive
+        env:
+          VERSION: ${{ inputs.tag || 'v3.0.0' }}
+          UPDATE_REPOSITORY: ${{ github.repository }}
+        run: |
+          sh packaging/linux/build-desktop.sh
+          mv dist/FreeTurn-Linux-amd64.tar.gz "dist/FreeTurn-Linux-amd64-${VERSION}.tar.gz"
+          rm dist/FreeTurn-Linux-amd64.tar.gz.sha256
+          cd dist
+          sha256sum "FreeTurn-Linux-amd64-${VERSION}.tar.gz" > "FreeTurn-Linux-amd64-${VERSION}.tar.gz.sha256"
+      - run: npm --prefix desktop/frontend test
+      - run: go test -race -tags webkit2_41 ./internal/... ./mobile ./desktop/...
+      - run: go vet -tags webkit2_41 ./internal/session ./mobile ./desktop/...
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: desktop-linux-amd64
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-go@v6.4.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 22
+      - name: Build Windows archive
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag || 'v3.0.0' }}
+          UPDATE_REPOSITORY: ${{ github.repository }}
+        run: ./packaging/windows/build-desktop.ps1
+      - run: npm --prefix desktop/frontend test
+      - run: go test -race ./internal/... ./mobile ./desktop/...
+      - run: go vet ./internal/session ./mobile ./desktop/...
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: desktop-windows-amd64
+          path: |
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+  macos:
     strategy:
       fail-fast: false
       matrix:
@@ -20,54 +85,44 @@ jobs:
           - runner: macos-15-intel
             arch: amd64
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - uses: actions/setup-go@v6.4.0
         with:
           go-version-file: go.mod
-          cache: true
       - uses: actions/setup-node@v7.1.0
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: desktop/frontend/package-lock.json
-      - name: Build signed app bundle
+      - name: Build macOS archive
         env:
           MACOS_ARCH: ${{ matrix.arch }}
-          RELEASE_TAG: v0.2.2
+          RELEASE_TAG: ${{ inputs.tag || 'v3.0.0' }}
           UPDATE_REPOSITORY: ${{ github.repository }}
         run: sh packaging/macos/build-desktop.sh
-      - name: Frontend regression checks
-        run: npm --prefix desktop/frontend test
-      - name: Go tests and vet
+      - run: npm --prefix desktop/frontend test
+      - run: go test -race ./internal/... ./mobile ./desktop/...
+      - name: Exercise utun routes and persistent helper
         run: |
-          go test ./desktop/... ./internal/session ./mobile
-          go test -race ./desktop/backend/... ./desktop/integration ./desktop/updates
-          go vet ./desktop/... ./cmd/macos-vpn-helper
-      - name: Exercise Darwin routes on the isolated runner
-        run: |
-          go test -c ./desktop/backend/wintunnel -o "$RUNNER_TEMP/wintunnel-routing.test"
-          sudo -n env FREETURN_PRIVILEGED_TESTS=1 "$RUNNER_TEMP/wintunnel-routing.test" -test.run '^TestMacPrivilegedScopedRouting$' -test.v -test.timeout 45s
-      - name: Exercise persistent VPN service on the isolated runner
-        run: |
+          go test -c ./desktop/backend/wintunnel -o "$RUNNER_TEMP/wintunnel.test"
+          sudo -n env FREETURN_PRIVILEGED_TESTS=1 "$RUNNER_TEMP/wintunnel.test" -test.run '^TestMacPrivilegedScopedRouting$' -test.v -test.timeout 45s
           go build -o "$RUNNER_TEMP/freeturn-vpn-helper" ./cmd/macos-vpn-helper
           codesign --force --sign - --timestamp=none "$RUNNER_TEMP/freeturn-vpn-helper"
-          go test -c ./desktop/backend/wintunnel -o "$RUNNER_TEMP/wintunnel-service.test"
-          sudo -n env FREETURN_PRIVILEGED_TESTS=1 FREETURN_TEST_SERVICE_UID="$(id -u)" FREETURN_TEST_HELPER_BINARY="$RUNNER_TEMP/freeturn-vpn-helper" "$RUNNER_TEMP/wintunnel-service.test" -test.run '^TestMacPrivilegedPersistentService$' -test.v -test.timeout 90s
-      - name: Validate packaged app with the updater
+          sudo -n env FREETURN_PRIVILEGED_TESTS=1 FREETURN_TEST_SERVICE_UID="$(id -u)" FREETURN_TEST_HELPER_BINARY="$RUNNER_TEMP/freeturn-vpn-helper" "$RUNNER_TEMP/wintunnel.test" -test.run '^TestMacPrivilegedPersistentService$' -test.v -test.timeout 90s
+      - name: Validate app archive
         env:
+          RELEASE_TAG: ${{ inputs.tag || 'v3.0.0' }}
           MACOS_ARCH: ${{ matrix.arch }}
-          RELEASE_TAG: v0.2.2
         run: |
           export FREETURN_TEST_MACOS_ARCHIVE="$PWD/dist/FreeTurn-macOS-${MACOS_ARCH}-${RELEASE_TAG}.zip"
           export FREETURN_TEST_MACOS_VERSION="$RELEASE_TAG"
           go test ./desktop/updates -run '^TestMacPackagedArchive$' -v -count=1
       - uses: actions/upload-artifact@v7.0.2
         with:
-          name: FreeTurn-macOS-${{ matrix.arch }}
+          name: desktop-macos-${{ matrix.arch }}
           path: |
             dist/*.zip
             dist/*.sha256
           if-no-files-found: error
-          retention-days: 14

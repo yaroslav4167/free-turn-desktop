@@ -4,12 +4,47 @@ import (
 	"context"
 	"errors"
 	"net"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/samosvalishe/free-turn-proxy/internal/transport/dtlsdial"
 )
+
+func TestHandshakeWaitsForTURNAllocation(t *testing.T) {
+	t.Parallel()
+	deps, listenConn := newPairDeps(t)
+	deps.DTLSDialer.HandshakeTimeout = 50 * time.Millisecond
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	pairs := make(chan streamPair, 1)
+	done := make(chan error, 1)
+	peer := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 9}
+	go func() {
+		done <- oneDTLS(ctx, deps, &Params{}, peer, listenConn, make(chan *Packet), pairs, nil, 1)
+	}()
+	var pair streamPair
+	select {
+	case pair = <-pairs:
+	case <-ctx.Done():
+		t.Fatal("pair was not published")
+	}
+	select {
+	case err := <-done:
+		t.Fatalf("DTLS timed out before TURN became ready: %v", err)
+	case <-time.After(4 * deps.DTLSDialer.HandshakeTimeout):
+	}
+	close(pair.ready)
+	select {
+	case err := <-done:
+		if err == nil || !strings.Contains(err.Error(), "failed to connect DTLS") {
+			t.Fatalf("expected the unanswered DTLS handshake to fail, got %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("DTLS did not start after TURN became ready")
+	}
+}
 
 func newPairDeps(t *testing.T) (*Deps, net.PacketConn) {
 	t.Helper()

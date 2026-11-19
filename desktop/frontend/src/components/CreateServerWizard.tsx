@@ -8,12 +8,11 @@ import {
   GenerateObfKey,
   OBF_PROFILES,
   serversetup,
-  SetupCreateServer,
   SetupDetectRootMode,
-  SetupInstall,
   SetupProbe,
-  SetupStart,
-  SetupWgSetup,
+  SetupAttachContainer,
+  SetupCreateContainer,
+  ContainerInstance,
   NewServer,
   SaveServer,
 } from '../api'
@@ -25,9 +24,6 @@ interface Props {
 type Step = 'ssh' | 'existing' | 'config' | 'progress' | 'done'
 type TaskState = 'pending' | 'running' | 'done' | 'error'
 
-
-// Must match backend.DefaultServer()'s Listen default.
-const DEFAULT_RELAY_LISTEN = '127.0.0.1:9000'
 
 function randomPort(min: number, max: number): number {
   return Math.floor(min + Math.random() * (max - min))
@@ -52,6 +48,9 @@ export default function CreateServerWizard({onCreated}: Props) {
   const [error, setError] = useState('')
   const [existing, setExisting] = useState<serversetup.ProbeResult | null>(null)
   const [existingDraft, setExistingDraft] = useState<backend.Server | null>(null)
+	const [containers, setContainers] = useState<ContainerInstance[]>([])
+	const [containerId, setContainerId] = useState('')
+	const [deviceName, setDeviceName] = useState('')
 
   const [name, setName] = useState('')
   const [vkLink, setVkLink] = useState('')
@@ -84,6 +83,10 @@ export default function CreateServerWizard({onCreated}: Props) {
       const pinned: serversetup.SSHConfig = {...withRoot, hostFingerprint: probe.hostFingerprint || withRoot.hostFingerprint}
       setSsh(pinned)
       setExisting(probe)
+		const found: ContainerInstance[] = (probe as typeof probe & {containers?: ContainerInstance[]}).containers || []
+		setContainers(found)
+		setContainerId(found.length === 1 && found[0].supported && found[0].running ? found[0].id : '')
+		if (!deviceName) setDeviceName('desktop-' + (await GenerateClientID()).replace(/[^a-zA-Z0-9]/g, '').slice(0, 16))
       setWgPortExisting(probe.wgPort > 0)
       if (probe.installed || probe.running) {
         const draft = await NewServer()
@@ -128,52 +131,22 @@ export default function CreateServerWizard({onCreated}: Props) {
       const fresh = await SetupProbe(ssh)
       if (fresh.installed || fresh.running) {
         setExisting(fresh)
+			setContainers((fresh as typeof fresh & {containers?: ContainerInstance[]}).containers || [])
         setExistingDraft(await NewServer())
         setStep('existing')
         return
       }
-      await SetupInstall(ssh)
-      mark('install', 'done')
-
-      mark('wgSetup', 'running')
-      // Baked into the generated conf's Endpoint - must match the new
-      // server's default `listen` (backend.DefaultServer's 127.0.0.1:9000),
-      // since that's the local relay port the WG/AmneziaWG client should hit.
-      const wg = await SetupWgSetup(ssh, wgPort, DEFAULT_RELAY_LISTEN)
-      mark('wgSetup', 'done')
-
-      mark('start', 'running')
-      let usedListenPort = listenPort
-      try {
-        await SetupStart(ssh, {
-          listen: `0.0.0.0:${usedListenPort}`,
-          connect: `127.0.0.1:${wg.port}`,
-          obfProfile, obfKey, obfTimingMs: 0, clientId,
-        })
-      } catch (e) {
-        // The random port collided with something else already listening on
-        // the VPS - pick a fresh one and retry once rather than making the
-        // user notice and redo the whole wizard by hand.
-        if (!String(e).includes('listen_port_busy')) throw e
-        usedListenPort = randomPort(56000, 57000)
-        setListenPort(usedListenPort)
-        await SetupStart(ssh, {
-          listen: `0.0.0.0:${usedListenPort}`,
-          connect: `127.0.0.1:${wg.port}`,
-          obfProfile, obfKey, obfTimingMs: 0, clientId,
-        })
-      }
-      mark('start', 'done')
-
-      mark('save', 'running')
       const draft: backend.ServerSetupDraft = {
         name: name.trim() || ssh.ip, vkLink: vkLink.trim(), obfProfile, obfKey, obfTimingMs: 0,
-        listenPort: usedListenPort, clientId,
+        listenPort, clientId,
       }
-      const saved = await SetupCreateServer(ssh, draft, wg)
+      const saved = await SetupCreateContainer(ssh, draft, wgPort, deviceName)
+      mark('install', 'done')
+      mark('wgSetup', 'done')
+      mark('start', 'done')
       mark('save', 'done')
 
-      setResult({server: saved, wgConf: wg.clientConf})
+      setResult({server: saved, wgConf: saved.wgClientConf || ''})
       setStep('done')
     } catch (e) {
       const failed = Object.entries(localTasks).find(([, v]) => v.state === 'running')?.[0]
@@ -245,6 +218,24 @@ export default function CreateServerWizard({onCreated}: Props) {
 
   if (step === 'existing') {
     return <>
+		{containers.length > 0 && <>
+			<div className="notice info">{tr('Найден существующий контейнер FreeTurn. Добавим отдельный профиль устройства без переустановки, обновления и перезапуска сервера.', 'Existing FreeTurn container found. Add a separate device profile without reinstalling, updating or restarting the server.')}</div>
+			<div className="field"><label>{tr('Контейнер', 'Container')}</label>
+				<select value={containerId} onChange={e => setContainerId(e.target.value)}>
+					<option value="">{tr('Выберите экземпляр', 'Select an instance')}</option>
+					{containers.map(c => <option key={c.id} value={c.id} disabled={!c.supported || !c.running}>{c.name} · {c.image} · {c.running ? tr('Запущен', 'Running') : tr('Остановлен', 'Stopped')}{!c.supported ? ' · ' + tr('Только ручной импорт', 'Manual import only') : ''}</option>)}
+				</select>
+			</div>
+			<div className="field"><label>{tr('Имя устройства (desktop- и латиница, цифры, . _ -)', 'Device name (desktop- followed by letters, digits, . _ -)')}</label><input value={deviceName} maxLength={32} onChange={e => setDeviceName(e.target.value)} /></div>
+			<button className="btn primary" disabled={busy || !containerId || !/^desktop-[a-zA-Z0-9._-]{1,24}$/.test(deviceName)} onClick={async () => {
+				setBusy(true); setError('')
+				try { onCreated(await SetupAttachContainer(ssh, containerId, deviceName)) }
+				catch (e) { setError(String(e)) }
+				finally { setBusy(false) }
+			}}>{busy ? tr('Подключение…', 'Connecting…') : tr('Использовать контейнер', 'Use container')}</button>
+		</>}
+      <details open={containers.length === 0}>
+      <summary>{tr('Ручное подключение', 'Manual connection')}</summary>
       <div className="notice info">
         {tr('Обнаружен установленный сервер. Повторная установка и перенастройка отключены.', 'An existing server was detected. Reinstallation and reconfiguration are disabled.')}
         {' '}{existing?.existingService} {existing?.version}
@@ -270,6 +261,7 @@ export default function CreateServerWizard({onCreated}: Props) {
           finally { setBusy(false) }
         }}>{tr('Сохранить', 'Save')}</button>
       </div>
+      </details>
     </>
   }
 

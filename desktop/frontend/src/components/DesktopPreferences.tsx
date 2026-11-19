@@ -73,7 +73,7 @@ export default function DesktopPreferences({version, active, servers}: {version:
             <label className="preference-row">
               <div>
                 <strong>{tr('Запускать вместе с системой', 'Start at login')}</strong>
-                <p>{tr('При входе в macOS. Автоподключение настраивается отдельно ниже.', 'When signing in to macOS. Automatic connection is configured separately below.')}</p>
+                <p>{tr('При входе в систему. Автоподключение настраивается отдельно ниже.', 'When signing in. Automatic connection is configured separately below.')}</p>
               </div>
               <input
                 type="checkbox"
@@ -157,7 +157,7 @@ export default function DesktopPreferences({version, active, servers}: {version:
       <footer className="settings-about">
         <img className="app-icon" src="/freeturn.svg" alt="" width="44" height="44" />
         <div>
-          <strong>{tr('FreeTurn для macOS', 'FreeTurn for macOS')}</strong>
+          <strong>{tr('FreeTurn Desktop', 'FreeTurn Desktop')}</strong>
           <p>Core {version || '…'} · Wails + React</p>
         </div>
         <button className="btn danger" onClick={() => run(() => desktop().Quit())}>

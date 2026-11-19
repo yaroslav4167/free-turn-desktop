@@ -438,6 +438,7 @@ export namespace serversetup {
 	    }
 	}
 	export class SSHConfig {
+	    manager?: string;
 	    ip: string;
 	    port: number;
 	    username: string;
@@ -463,6 +464,7 @@ export namespace serversetup {
 	        this.hostFingerprint = source["hostFingerprint"];
 	        this.rootMode = source["rootMode"];
 	        this.sudoPassword = source["sudoPassword"];
+	        this.manager = source["manager"];
 	    }
 	}
 	export class StartOptions {

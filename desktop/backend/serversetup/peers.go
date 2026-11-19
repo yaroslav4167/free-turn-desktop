@@ -63,6 +63,9 @@ type shareListData struct {
 
 // ShareList reads the server's WireGuard users and when each last connected.
 func ShareList(cfg SSHConfig) (*PeerList, error) {
+	if cfg.Manager == HackdiazDocker {
+		return dockerShareList(cfg)
+	}
 	resp, _, err := runControl(cfg, []string{"share-list"})
 	if err != nil {
 		return nil, err
@@ -145,6 +148,9 @@ type peerAddData struct {
 // It runs as a detached server-side job: creating a peer is not idempotent, and
 // the plain retry-on-dropped-connection path would happily create it twice.
 func PeerAdd(cfg SSHConfig, name, endpoint, clientID string) (*PeerIssued, error) {
+	if cfg.Manager == HackdiazDocker {
+		return dockerIssue(cfg, "client-add", name)
+	}
 	name, err := cleanPeerName(name)
 	if err != nil {
 		return nil, err
@@ -185,6 +191,13 @@ type peerConfData struct {
 // given) and returns it, so an old user can still be shared. Both are ignored
 // for users that already have one.
 func PeerConf(cfg SSHConfig, pub, candidateClientID, name string) (*PeerIssued, error) {
+	if cfg.Manager == HackdiazDocker {
+		p, err := dockerPeerByKey(cfg, pub)
+		if err != nil {
+			return nil, err
+		}
+		return dockerIssue(cfg, "client-conf", p.Name)
+	}
 	argv := []string{"peer-conf", "--pubkey=" + pub}
 	if candidateClientID != "" {
 		argv = append(argv, "--client-id="+candidateClientID)
@@ -214,6 +227,17 @@ func PeerConf(cfg SSHConfig, pub, candidateClientID, name string) (*PeerIssued, 
 // allowlist entry. Removing one that is already gone is not an error, so the
 // call is safe to repeat. The owner's own peer is refused by the script.
 func PeerRemove(cfg SSHConfig, pub string) error {
+	if cfg.Manager == HackdiazDocker {
+		p, err := dockerPeerByKey(cfg, pub)
+		if err != nil {
+			return err
+		}
+		if p.Self {
+			return errors.New("нельзя удалить владельца общей установки")
+		}
+		_, err = dockerRPC(cfg, "client-remove", "--name="+p.Name)
+		return err
+	}
 	resp, _, err := runControl(cfg, []string{"peer-remove", "--pubkey=" + pub})
 	if err != nil {
 		return err
@@ -242,6 +266,10 @@ type shareInfoData struct {
 }
 
 func GetShareInfo(cfg SSHConfig) (*ShareInfo, error) {
+	if cfg.Manager == HackdiazDocker {
+		_, info, err := dockerPeers(cfg)
+		return info, err
+	}
 	resp, _, err := runControl(cfg, []string{"share-info"})
 	if err != nil {
 		return nil, err

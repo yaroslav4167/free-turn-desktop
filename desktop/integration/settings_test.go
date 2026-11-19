@@ -9,6 +9,7 @@ import (
 
 func TestAutoConnectDefaultsAndMigration(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("APPDATA", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	prefs, err := LoadPreferences()
 	if err != nil || prefs.AutoConnect || !prefs.AutoCheckUpdates {
@@ -29,6 +30,7 @@ func TestAutoConnectDefaultsAndMigration(t *testing.T) {
 
 func TestObsoleteRenderingPreferencesAreIgnored(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("APPDATA", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	path, _ := preferencesPath()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

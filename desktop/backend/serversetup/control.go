@@ -47,6 +47,9 @@ func scriptStdin(cfg SSHConfig, payload string) string {
 // retrying can't fix and which for a MITM mismatch specifically must not be
 // silently retried past.
 func runControl(cfg SSHConfig, argv []string) (*ControlResponse, string, error) {
+	if cfg.Manager != "" {
+		return nil, "", fmt.Errorf("legacy control is disabled for manager %q", cfg.Manager)
+	}
 	if cfg.IP == "" {
 		return nil, "", errors.New("no SSH config")
 	}
