@@ -222,7 +222,7 @@ export default function CreateServerWizard({onCreated}: Props) {
   if (step === 'review' && containerPreview && existingDraft) {
     return <>
       <div className="notice info">{tr('Проверьте адрес реле перед сохранением профиля. Адрес из конфигурации сервера может быть устаревшим.', 'Review the relay address before saving the profile. The server configuration may contain an outdated address.')}</div>
-      {containerPreview.advertisedPeer !== containerPreview.sshPeer && <div className="notice warning">
+      {containerPreview.needsReview && <div className="notice warning">
         {tr('Адрес в ссылке отличается от адреса SSH. Это может быть намеренно (NAT или отдельный публичный адрес); выберите нужный вариант.', 'The link address differs from the SSH address. This can be intentional (NAT or a separate public address); choose the appropriate endpoint.')}
       </div>}
       {error && <div className="notice error">{error}</div>}
@@ -266,6 +266,10 @@ export default function CreateServerWizard({onCreated}: Props) {
 				setBusy(true); setError('')
 				try {
           const preview = await SetupPrepareContainer(ssh, containerId, deviceName)
+          if (!preview.needsReview) {
+            onCreated(await SaveServer(preview.server))
+            return
+          }
           setContainerPreview(preview)
           // No endpoint is selected silently: an imported public host can be
           // stale, while SSH can legitimately use a separate bastion/NAT host.

@@ -3,7 +3,9 @@ package backend
 import (
 	"errors"
 	"net"
+	"net/netip"
 	"strconv"
+	"strings"
 
 	"github.com/samosvalishe/free-turn-proxy/desktop/backend/serversetup"
 )
@@ -15,6 +17,7 @@ type ContainerPreview struct {
 	Server         Server `json:"server"`
 	AdvertisedPeer string `json:"advertisedPeer"`
 	SSHPeer        string `json:"sshPeer"`
+	NeedsReview    bool   `json:"needsReview"`
 }
 
 func BuildContainerPreview(cfg serversetup.SSHConfig, link string) (*ContainerPreview, error) {
@@ -37,5 +40,18 @@ func BuildContainerPreview(cfg serversetup.SSHConfig, link string) (*ContainerPr
 	cfg.Manager = serversetup.HackdiazDocker
 	srv.SSH = &cfg
 	srv.Name = cfg.IP
-	return &ContainerPreview{Server: srv, AdvertisedPeer: srv.Peer, SSHPeer: net.JoinHostPort(cfg.IP, port)}, nil
+	return &ContainerPreview{
+		Server: srv, AdvertisedPeer: srv.Peer, SSHPeer: net.JoinHostPort(cfg.IP, port),
+		NeedsReview: normalizedRelayHost(host) != normalizedRelayHost(cfg.IP),
+	}, nil
+}
+
+// Compare names/IP literals without DNS lookups. A separate public name or
+// bastion still requires confirmation, even if DNS currently returns one IP.
+func normalizedRelayHost(host string) string {
+	host = strings.TrimSpace(host)
+	if ip, err := netip.ParseAddr(host); err == nil {
+		return ip.Unmap().String()
+	}
+	return strings.ToLower(strings.TrimSuffix(host, "."))
 }

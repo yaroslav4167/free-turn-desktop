@@ -22,7 +22,7 @@ test('container reuse creates a device, never reinstalls its server', () => {
 
 test('container endpoints are reviewed before local save, never silently replaced', () => {
   const review = wizard.slice(wizard.indexOf("if (step === 'review'"), wizard.indexOf("if (step === 'existing')"))
-  assert.match(review, /containerPreview.advertisedPeer !== containerPreview.sshPeer/)
+  assert.match(review, /containerPreview.needsReview/)
   assert.match(review, /peer: containerPreview.advertisedPeer/)
   assert.match(review, /peer: containerPreview.sshPeer/)
   assert.match(review, /SaveServer\(existingDraft\)/)
@@ -33,4 +33,13 @@ test('container endpoints are reviewed before local save, never silently replace
   const prepare = app.slice(app.indexOf('func (a *App) SetupPrepareContainer'), app.indexOf('func (a *App) SetupCreateContainer'))
   assert.match(prepare, /BuildContainerPreview/)
   assert.doesNotMatch(prepare, /store.Save|serversetup.Start|serversetup.Install/)
+})
+
+test('matching container endpoints save immediately without asking for a choice', () => {
+  const start = wizard.indexOf('if (!preview.needsReview)')
+  assert.ok(start >= 0)
+  const fastPath = wizard.slice(start, wizard.indexOf('setContainerPreview(preview)', start))
+  assert.match(fastPath, /onCreated\(await SaveServer\(preview.server\)\)/)
+  assert.match(fastPath, /return/)
+  assert.doesNotMatch(fastPath, /setStep\('review'\)/)
 })

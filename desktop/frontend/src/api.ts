@@ -17,6 +17,7 @@ export interface ContainerPreview {
   server: import('../wailsjs/go/models').backend.Server;
   advertisedPeer: string;
   sshPeer: string;
+  needsReview: boolean;
 }
 export const SetupPrepareContainer = (cfg: import('../wailsjs/go/models').serversetup.SSHConfig, id: string, name: string): Promise<ContainerPreview> =>
   (window as any).go.main.App.SetupPrepareContainer(cfg, id, name)

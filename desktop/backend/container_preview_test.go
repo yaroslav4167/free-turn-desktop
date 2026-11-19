@@ -23,6 +23,9 @@ func TestContainerPreviewRequiresExplicitEndpointChoice(t *testing.T) {
 	if p.AdvertisedPeer != link.Peer || p.Server.Peer != link.Peer || p.SSHPeer != "vpn.example:56952" {
 		t.Fatalf("wrong endpoint choices: advertised=%q selected=%q ssh=%q", p.AdvertisedPeer, p.Server.Peer, p.SSHPeer)
 	}
+	if !p.NeedsReview {
+		t.Fatal("different endpoints bypassed review")
+	}
 	if p.Server.ClientID != link.ClientID || p.Server.ObfKey != link.ObfKey || p.Server.WgClientConf != strings.TrimSpace(wg) || p.Server.DTLSFingerprint != link.Fingerprint {
 		t.Fatal("preview changed credentials, obfuscation, profile or DTLS pin")
 	}
@@ -33,6 +36,27 @@ func TestContainerPreviewRequiresExplicitEndpointChoice(t *testing.T) {
 	p.Server.Peer = p.SSHPeer
 	if p.AdvertisedPeer != link.Peer || p.Server.ObfKey != link.ObfKey {
 		t.Fatal("endpoint edit altered imported data")
+	}
+}
+
+func TestMatchingContainerEndpointsDoNotRequireReview(t *testing.T) {
+	for _, test := range []struct{ ssh, peer string }{
+		{"vpn.example", "vpn.example:56952"},
+		{"VPN.EXAMPLE", "vpn.example.:56952"},
+		{"192.0.2.1", "192.0.2.1:56952"},
+		{"2001:db8::1", "[2001:db8:0:0::1]:56952"},
+	} {
+		encoded, err := (ShareLink{Provider: "vk", Peer: test.peer, ClientID: "test-device", WgConf: "[Interface]"}).Encode()
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := BuildContainerPreview(serversetup.SSHConfig{IP: test.ssh}, encoded)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p.NeedsReview || p.Server.Peer != test.peer {
+			t.Fatalf("matching endpoint required a choice or changed: %+v", test)
+		}
 	}
 }
 

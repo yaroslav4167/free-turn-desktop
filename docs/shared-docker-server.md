@@ -16,7 +16,10 @@ imports its complete official link. Every desktop gets a distinct generated
 name retrieves its configuration rather than creating a duplicate. Server
 settings, image and other users are not changed or restarted during attachment.
 
-The wizard reviews the issued relay endpoint before saving the local profile.
+When the issued link host and SSH host match, the wizard saves the local
+profile immediately, without an extra choice. Otherwise it reviews the issued
+relay endpoint before saving. Domain-name case/trailing dots and equivalent IP
+literals are normalized for comparison, without DNS-based guessing.
 The advertised public host in `install.conf` can be stale, even when the Docker
 listener, key and mode are correct. Both the advertised endpoint and the SSH
 host with the issued relay port are offered. No endpoint is rewritten silently:
