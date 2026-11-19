@@ -1,82 +1,184 @@
+<div align="center">
+
+<img src="desktop/assets/icon.svg" alt="Логотип FreeTurn" width="104" height="104">
+
 # FreeTurn Desktop
 
-One desktop client and release stream for **Windows, Linux and macOS**.
-Based on [FreeTurn Proxy](https://github.com/hackdiaz-dev/free-turn-proxy), with
-the native integrations and history of the three desktop forks preserved.
+**Ваш VPN. Ваш сервер. Один клиент для Windows, Linux и macOS.**
 
-## Downloads
+WireGuard и AmneziaWG через TURN — с понятным интерфейсом,
+управлением серверами и автоматическими обновлениями.
 
-[Releases](https://github.com/yaroslav4167/free-turn-desktop/releases/latest)
-contain all four native builds and a shared `checksums.txt`:
+[![Последний релиз](https://img.shields.io/github/v/release/yaroslav4167/free-turn-desktop?label=%D1%80%D0%B5%D0%BB%D0%B8%D0%B7&style=flat-square)](https://github.com/yaroslav4167/free-turn-desktop/releases/latest)
+[![Проверки сборки](https://github.com/yaroslav4167/free-turn-desktop/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/yaroslav4167/free-turn-desktop/actions/workflows/build.yml)
 
-| Platform | Archive | Installation |
-| --- | --- | --- |
-| Linux amd64 | `FreeTurn-Linux-amd64-v*.tar.gz` | Extract and run `./install-desktop.sh` |
-| Windows amd64 | `FreeTurn-Windows-amd64-v*.zip` | Extract and run `Install.cmd` |
-| macOS Apple Silicon | `FreeTurn-macOS-arm64-v*.zip` | Move `FreeTurn.app` to Applications |
-| macOS Intel | `FreeTurn-macOS-amd64-v*.zip` | Move `FreeTurn.app` to Applications |
+**[Скачать](https://github.com/yaroslav4167/free-turn-desktop/releases/latest)** ·
+[Возможности](#возможности) · [Установка](#установка) · [Сборка](#сборка-из-исходников)
 
-Verify the archive's SHA-256 against `checksums.txt`. macOS requires 13+;
-builds are ad-hoc signed, not Apple-notarized. No global Gatekeeper changes
-are needed. See [macOS helper and permissions](docs/macos.md).
+<img src="docs/screenshots/interface-collage.png" alt="Интерфейс FreeTurn: подключение и трафик, профили серверов и настройки приложения" width="1200">
 
-## Features
+<sub>Демонстрационные экраны общего интерфейса. Использованы снимки Linux-версии; детали могут отличаться в зависимости от платформы и версии.</sub>
 
-- WireGuard/AmneziaWG through TURN, with native Linux helper, Windows Wintun,
-  and macOS utun/launchd helper.
-- Animated connection control, independent captcha prompts, traffic charts,
-  ping, per-profile routing lists and server/client management over SSH.
-- Russian/English JSON localization, startup/auto-connect, tray/menu-bar
-  integration, verified updates with explicit confirmation and rollback.
-- Reuse of supported hackdiaz Docker servers with a distinct profile for each
-  device. No automatic server reinstall or restart during attachment.
+</div>
 
-See [shared Docker setup](docs/shared-docker-server.md) and
-[localization](docs/localization.md). Existing unknown server installations
-are never adopted or overwritten automatically.
+## Возможности
 
-## Migrating from the separate repositories
+| | Что доступно |
+| :--- | :--- |
+| **Подключение одной кнопкой** | Встроенный VPN на базе WireGuard/AmneziaWG, состояние соединения, графики трафика и пинг. |
+| **Свой сервер** | Импорт `freeturn://`-ссылок, настройка VPS по SSH и управление пользователями. |
+| **Совместимость с Android** | Подключение к поддерживаемым контейнерам hackdiaz без повторной установки сервера. Для каждого устройства — отдельный профиль. |
+| **Гибкая маршрутизация** | Списки доменов, IP-адресов и подсетей с отдельными правилами для каждого профиля. |
+| **Удобная работа** | Системный трей или строка меню, запуск вместе с системой, автоподключение и отдельные уведомления о проверке VK. |
+| **Проверяемые обновления** | Выбор архива под свою ОС и архитектуру, проверка SHA-256, подтверждение установки и откат при неудачном запуске. |
+| **Русский и английский** | Переключение языка в настройках и расширяемые JSON-каталоги переводов. |
 
-Check for updates in your existing client and install **v3.0.0 directly**.
-The three legacy repositories also distribute the verified v3.0.0 archives
-built here. Those binaries already use `yaroslav4167/free-turn-desktop` for
-future updates. No intermediate version or second installation is required.
+Нативная VPN-интеграция сохранена для каждой системы: **VPN-helper на Linux**,
+**Wintun на Windows**, **utun и launchd-helper на macOS**.
 
-Linux v2.6.6, Windows v1.1.4 and macOS v0.2.3 bridge releases remain historical
-downloads, but are not required. The updater selects only the archive for the
-current platform and architecture. Manual installation also works. Profiles,
-preferences and installed-helper identities keep their existing storage paths.
-Old tags and downloads remain available; old repositories are not deleted.
-Server installations on VPSs are not migrated, restarted or removed by this
-desktop-repository migration.
+## Скачать
 
-## Building
+Все актуальные сборки находятся на странице **[последнего релиза](https://github.com/yaroslav4167/free-turn-desktop/releases/latest)**.
 
-Use the Go version in `go.mod` and Node.js 22.18+. Build on the target OS:
+| Система | Какой архив выбрать |
+| :--- | :--- |
+| **Windows · x64** | `FreeTurn-Windows-amd64-v….zip` |
+| **Linux · x64** | `FreeTurn-Linux-amd64-v….tar.gz` |
+| **macOS · Apple Silicon** | `FreeTurn-macOS-arm64-v….zip` |
+| **macOS · Intel** | `FreeTurn-macOS-amd64-v….zip` |
+
+Рядом с архивами опубликован файл `checksums.txt` с контрольными суммами SHA-256.
+Встроенное обновление само выбирает нужную платформу и проверяет скачанный файл.
+
+## Установка
+
+### Windows
+
+1. Распакуйте ZIP в отдельную папку.
+2. Запустите **`Install.cmd`** и следуйте подсказкам установщика.
+3. Импортируйте профиль или добавьте свой сервер.
+
+В архиве также есть **`Uninstall.cmd`** для удаления клиента.
+
+### Linux
+
+Распакуйте архив и запустите установщик **от обычного пользователя**:
 
 ```sh
-# Linux: GTK3 and WebKit2GTK 4.1 development packages are required.
-VERSION=v3.0.0 sh packaging/linux/build-desktop.sh
-
-# macOS: Xcode Command Line Tools are required.
-RELEASE_TAG=v3.0.0 sh packaging/macos/build-desktop.sh
+./install-desktop.sh
 ```
 
-On Windows, run `packaging/windows/build-desktop.ps1` from PowerShell 7 with
-Wails' native Windows build prerequisites installed. Set `RELEASE_TAG` for the
-build version. `UPDATE_REPOSITORY` defaults to this repository on all platforms.
+Установщик настроит VPN-helper и предложит создать ярлык. Для удаления используйте
+`./uninstall-desktop.sh`.
 
-GitHub Actions builds on Ubuntu 22.04, Windows, Apple Silicon and Intel macOS,
-runs native tests, and publishes only after **all four** builds pass and every
-archive checksum is verified. Native CI is not a live VPN acceptance test on
-every network. See [release notes](RELEASE_NOTES_DESKTOP.md).
+### macOS
 
-![Connection](docs/screenshots/connection.png)
-![Servers](docs/screenshots/servers.png)
-![Settings](docs/screenshots/settings.png)
+Требуется **macOS 13 или новее**. Распакуйте ZIP и перенесите **`FreeTurn.app`**
+в `/Applications` или `~/Applications`. При первом VPN-подключении приложение
+запросит разрешение администратора на установку системного helper.
 
-## License
+> **Важно:** сборки подписаны ad-hoc, без нотариального заверения Apple.
+> Если macOS блокирует запуск, разрешите открытие приложения в разделе
+> «Системные настройки → Конфиденциальность и безопасность».
+> Отключать Gatekeeper целиком не нужно.
 
-See [LICENSE](LICENSE). Original upstream and desktop-fork histories and
-attribution are retained. The Go module path is intentionally unchanged to
-preserve existing imports and linker targets.
+Подробнее о правах, обновлении и удалении helper — в [инструкции для macOS](docs/macos.md).
+
+## Первое подключение
+
+1. **Добавьте профиль:** импортируйте готовую `freeturn://`-ссылку или подключитесь к VPS по SSH.
+2. **Выберите сервер:** мастер обнаружит поддерживаемую существующую установку; на пустом VPS сможет создать новую.
+3. **Включите VPN.** Если VK запросит проверку, откройте её из уведомления приложения.
+
+При подключении к существующему контейнеру сервер не переустанавливается и не
+перезапускается. Если адрес в выданном профиле отличается от SSH-хоста, мастер
+попросит выбрать адрес реле. Совпадающие адреса сохраняются без лишнего выбора.
+
+**Для VPS с меняющимся IP используйте доменное имя и поддерживайте его DNS-запись
+актуальной.** Уже сохранённые профили с IP-адресом не изменяются автоматически.
+
+> Ссылки с клиентским профилем могут содержать приватный ключ WireGuard и Client ID.
+> Не публикуйте их в задачах GitHub, журналах или скриншотах.
+
+## Переход из старых репозиториев
+
+Разработка клиентов Windows, Linux и macOS объединена в **этом репозитории**.
+Старые репозитории предлагают прямое обновление до **v3.0.0**, в которую уже
+встроен новый источник обновлений. После этого следующие версии приходят отсюда.
+Переходные v2.6.6 / v1.1.4 / v0.2.3 устанавливать не требуется.
+
+Можно также сразу скачать актуальную сборку из [общего репозитория](https://github.com/yaroslav4167/free-turn-desktop/releases/latest)
+и установить её вручную. **Профили и настройки сохраняют прежние каталоги хранения.**
+Старые релизы и теги остаются доступны; серверы на VPS при переходе не изменяются.
+
+<details>
+<summary><strong>Посмотреть отдельные экраны интерфейса</strong></summary>
+
+### Подключение и трафик
+
+![Подключение и статистика трафика FreeTurn](docs/screenshots/connection.png)
+
+### Профили серверов
+
+![Управление профилями серверов FreeTurn](docs/screenshots/servers.png)
+
+### Настройки приложения
+
+![Настройки приложения FreeTurn](docs/screenshots/settings.png)
+
+</details>
+
+## Сборка из исходников
+
+<details>
+<summary><strong>Требования, команды и проверка релизов</strong></summary>
+
+Нужны версия **Go из `go.mod`** и **Node.js 22.18+**. Сборка выполняется на целевой ОС.
+
+**Linux:** установите пакеты разработки GTK3 и WebKit2GTK 4.1, затем выполните:
+
+```sh
+VERSION=v3.0.2 sh packaging/linux/build-desktop.sh
+```
+
+**Windows:** установите нативные зависимости Wails и запустите в PowerShell 7:
+
+```powershell
+$env:RELEASE_TAG = 'v3.0.2'
+./packaging/windows/build-desktop.ps1
+```
+
+**macOS:** установите Xcode Command Line Tools, затем выполните:
+
+```sh
+RELEASE_TAG=v3.0.2 sh packaging/macos/build-desktop.sh
+```
+
+`UPDATE_REPOSITORY` по умолчанию указывает на `yaroslav4167/free-turn-desktop`.
+Результаты сборки сохраняются в `dist/`.
+
+GitHub Actions собирает приложение на Ubuntu 22.04, Windows, Apple Silicon и Intel
+macOS. Публикация выполняется только после успешных проверок **всех четырёх сборок**
+и контрольных сумм архивов. Автоматические проверки не заменяют проверку живого
+VPN-подключения в конкретной сети.
+
+Коллаж для README можно пересоздать без дополнительных графических библиотек:
+
+```sh
+go run scripts/render-readme-collage.go
+```
+
+</details>
+
+## Документация и благодарности
+
+- [Работа с общим Docker-сервером](docs/shared-docker-server.md)
+- [Локализация интерфейса](docs/localization.md)
+- [Интеграция с macOS](docs/macos.md)
+- [Описание последнего выпуска](RELEASE_NOTES_DESKTOP.md)
+
+В основе проекта — [FreeTurn Proxy](https://github.com/hackdiaz-dev/free-turn-proxy).
+Сохранены история и наработки отдельных десктопных форков, а также исходные указания
+авторства. Путь Go-модуля оставлен прежним для совместимости импортов.
+
+Лицензия — [LICENSE](LICENSE).

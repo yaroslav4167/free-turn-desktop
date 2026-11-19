@@ -54,3 +54,19 @@ test('README screenshots are present and large enough to read', () => {
     assert.ok(png.readUInt32BE(20) >= 600, `screenshot is too short: ${path}`)
   }
 })
+
+test('Russian README opens with the canonical logo and interface collage', () => {
+  const readme = readFileSync(join(root, 'README.md'), 'utf8')
+  const logo = readme.indexOf('src="desktop/assets/icon.svg"')
+  const collage = readme.indexOf('src="docs/screenshots/interface-collage.png"')
+  assert.ok(logo >= 0 && collage > logo)
+  assert.ok(collage < readme.indexOf('## Возможности'))
+  for (const heading of ['## Возможности', '## Скачать', '## Установка', '## Сборка из исходников']) {
+    assert.ok(readme.includes(heading), heading)
+  }
+  assert.match(readme, /демонстрационные|Демонстрационные/)
+  const png = readFileSync(join(root, 'docs/screenshots/interface-collage.png'))
+  assert.equal(png.subarray(1, 4).toString(), 'PNG')
+  assert.equal(png.readUInt32BE(16), 1920)
+  assert.equal(png.readUInt32BE(20), 1100)
+})
