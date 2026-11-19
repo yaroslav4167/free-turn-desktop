@@ -39,6 +39,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
           UPDATE_REPOSITORY: ${{ github.repository }}
         run: |
+          python3 -m unittest discover -s packaging -p 'test_*.py'
           python3 packaging/verify-release.py dist "$RELEASE_TAG"
           cd dist
           cat *.sha256 > checksums.txt

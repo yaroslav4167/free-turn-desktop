@@ -43,3 +43,11 @@ func TestUnifiedReleaseMigrationSelectsNativeArchive(t *testing.T) {
 		})
 	}
 }
+
+func TestUnifiedVersionOutranksEveryBridge(t *testing.T) {
+	for _, bridge := range []string{"v2.6.6", "v1.1.4", "v0.2.3"} {
+		if !newer("v3.0.0", bridge) || newer(bridge, "v3.0.0") {
+			t.Fatalf("unsafe migration ordering: %s", bridge)
+		}
+	}
+}
