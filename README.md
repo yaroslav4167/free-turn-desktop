@@ -37,15 +37,14 @@ are never adopted or overwritten automatically.
 
 ## Migrating from the separate repositories
 
-Install the final bridge release from your existing client's update screen:
+Check for updates in your existing client and install **v3.0.0 directly**.
+The three legacy repositories also distribute the verified v3.0.0 archives
+built here. Those binaries already use `yaroslav4167/free-turn-desktop` for
+future updates. No intermediate version or second installation is required.
 
-- Linux: **v2.6.6** in `yaroslav4167/free-turn-linux`.
-- Windows: **v1.1.4** in `yaroslav4167/free-turn-windows`.
-- macOS: **v0.2.3** in `yaroslav4167/free-turn-macos`.
-
-That build changes the update source to this repository. Its next update is
-the shared **v3.0.0**, selecting only the archive for the current platform and
-architecture. Manual installation from this repository also works. Profiles,
+Linux v2.6.6, Windows v1.1.4 and macOS v0.2.3 bridge releases remain historical
+downloads, but are not required. The updater selects only the archive for the
+current platform and architecture. Manual installation also works. Profiles,
 preferences and installed-helper identities keep their existing storage paths.
 Old tags and downloads remain available; old repositories are not deleted.
 Server installations on VPSs are not migrated, restarted or removed by this

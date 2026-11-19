@@ -18,5 +18,10 @@ Choose the archive matching your OS. macOS builds are ad-hoc signed, not
 Developer ID notarized. Releases require all four native build/test jobs to
 pass; this does not certify a live VPN connection on every user's network.
 
-Older repositories publish a final bridge update: Linux v2.6.6, Windows v1.1.4,
-and macOS v0.2.3. Install that update once to switch automatic updates here.
+## Direct upgrade from the old repositories
+
+The old Linux, Windows and macOS repositories also distribute these exact
+v3.0.0 archives. Existing clients can update directly to v3.0.0 without an
+intermediate version. The installed v3.0.0 binary already points automatic
+updates to `yaroslav4167/free-turn-desktop`. Profiles and preferences remain
+in their existing locations. Older bridge downloads are no longer required.

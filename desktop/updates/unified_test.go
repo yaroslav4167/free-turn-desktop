@@ -13,12 +13,16 @@ func TestUnifiedReleaseMigrationSelectsNativeArchive(t *testing.T) {
 	const repo = "yaroslav4167/free-turn-desktop"
 	const tag = "v3.0.0"
 	for _, test := range []struct{ platform, arch, bridge, asset string }{
+		{"linux", "amd64", "v2.6.5", "FreeTurn-Linux-amd64-v3.0.0.tar.gz"},
+		{"windows", "amd64", "v1.1.3", "FreeTurn-Windows-amd64-v3.0.0.zip"},
+		{"darwin", "arm64", "v0.2.2", "FreeTurn-macOS-arm64-v3.0.0.zip"},
+		{"darwin", "amd64", "v0.2.2", "FreeTurn-macOS-amd64-v3.0.0.zip"},
 		{"linux", "amd64", "v2.6.6", "FreeTurn-Linux-amd64-v3.0.0.tar.gz"},
 		{"windows", "amd64", "v1.1.4", "FreeTurn-Windows-amd64-v3.0.0.zip"},
 		{"darwin", "arm64", "v0.2.3", "FreeTurn-macOS-arm64-v3.0.0.zip"},
 		{"darwin", "amd64", "v0.2.3", "FreeTurn-macOS-amd64-v3.0.0.zip"},
 	} {
-		t.Run(test.platform+"-"+test.arch, func(t *testing.T) {
+		t.Run(test.platform+"-"+test.arch+"/"+test.bridge, func(t *testing.T) {
 			m := NewForPlatform(test.bridge, test.arch, repo, test.platform)
 			m.client.Transport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
 				if r.URL.String() != "https://api.github.com/repos/"+repo+"/releases/latest" {
