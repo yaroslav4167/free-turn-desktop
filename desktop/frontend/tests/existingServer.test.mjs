@@ -14,8 +14,23 @@ test('existing installations bypass provisioning and save only a local profile',
 
 test('container reuse creates a device, never reinstalls its server', () => {
   const existing = wizard.slice(wizard.indexOf("if (step === 'existing')"), wizard.indexOf("if (step === 'config')"))
-  assert.match(existing, /SetupAttachContainer\(ssh, containerId, deviceName\)/)
+  assert.match(existing, /SetupPrepareContainer\(ssh, containerId, deviceName\)/)
   assert.match(existing, /disabled=\{!c.supported \|\| !c.running\}/)
   assert.doesNotMatch(existing, /SetupCreateContainer/)
   assert.doesNotMatch(wizard, /await SetupInstall|await SetupStart|await SetupWgSetup/)
+})
+
+test('container endpoints are reviewed before local save, never silently replaced', () => {
+  const review = wizard.slice(wizard.indexOf("if (step === 'review'"), wizard.indexOf("if (step === 'existing')"))
+  assert.match(review, /containerPreview.advertisedPeer !== containerPreview.sshPeer/)
+  assert.match(review, /peer: containerPreview.advertisedPeer/)
+  assert.match(review, /peer: containerPreview.sshPeer/)
+  assert.match(review, /SaveServer\(existingDraft\)/)
+  assert.match(wizard, /setExistingDraft\(\{\.\.\.preview.server, peer: ''\}/)
+  assert.match(review, /disabled=\{busy \|\| !existingDraft.peer\}/)
+  assert.doesNotMatch(review, /SetupPrepareContainer|SetupAttachContainer|SetupStart|SetupInstall/)
+  const app = readFileSync(new URL('../../app.go', import.meta.url), 'utf8')
+  const prepare = app.slice(app.indexOf('func (a *App) SetupPrepareContainer'), app.indexOf('func (a *App) SetupCreateContainer'))
+  assert.match(prepare, /BuildContainerPreview/)
+  assert.doesNotMatch(prepare, /store.Save|serversetup.Start|serversetup.Install/)
 })

@@ -10,7 +10,8 @@ import {
   serversetup,
   SetupDetectRootMode,
   SetupProbe,
-  SetupAttachContainer,
+  SetupPrepareContainer,
+  ContainerPreview,
   SetupCreateContainer,
   ContainerInstance,
   NewServer,
@@ -21,7 +22,7 @@ interface Props {
   onCreated: (s: backend.Server) => void
 }
 
-type Step = 'ssh' | 'existing' | 'config' | 'progress' | 'done'
+type Step = 'ssh' | 'existing' | 'review' | 'config' | 'progress' | 'done'
 type TaskState = 'pending' | 'running' | 'done' | 'error'
 
 
@@ -48,6 +49,7 @@ export default function CreateServerWizard({onCreated}: Props) {
   const [error, setError] = useState('')
   const [existing, setExisting] = useState<serversetup.ProbeResult | null>(null)
   const [existingDraft, setExistingDraft] = useState<backend.Server | null>(null)
+	const [containerPreview, setContainerPreview] = useState<ContainerPreview | null>(null)
 	const [containers, setContainers] = useState<ContainerInstance[]>([])
 	const [containerId, setContainerId] = useState('')
 	const [deviceName, setDeviceName] = useState('')
@@ -161,14 +163,15 @@ export default function CreateServerWizard({onCreated}: Props) {
         {error && <div className="notice error">{error}</div>}
         <div className="field-row">
           <div className="field" style={{flex: 2}}>
-            <label>{tr('IP адрес сервера', 'Server IP address')}</label>
-            <input type="text" value={ssh.ip} onChange={(e) => setSsh({...ssh, ip: e.target.value.trim()})} placeholder="1.2.3.4" />
+            <label>{tr('SSH-хост (домен или IP)', 'SSH host (domain or IP)')}</label>
+            <input type="text" value={ssh.ip} onChange={(e) => setSsh({...ssh, ip: e.target.value.trim()})} placeholder="vpn.example.com" />
           </div>
           <div className="field">
             <label>{tr('SSH порт', 'SSH port')}</label>
             <input type="number" value={ssh.port} onChange={(e) => setSsh({...ssh, port: Number(e.target.value)})} />
           </div>
         </div>
+        <p className="settings-note">{tr('Для сервера с меняющимся IP используйте домен и поддерживайте его DNS-запись актуальной.', 'For a server with a changing IP, use a domain and keep its DNS record up to date.')}</p>
         <div className="field-row">
           <div className="field">
             <label>{tr('Пользователь', 'Username')}</label>
@@ -216,6 +219,38 @@ export default function CreateServerWizard({onCreated}: Props) {
     )
   }
 
+  if (step === 'review' && containerPreview && existingDraft) {
+    return <>
+      <div className="notice info">{tr('Проверьте адрес реле перед сохранением профиля. Адрес из конфигурации сервера может быть устаревшим.', 'Review the relay address before saving the profile. The server configuration may contain an outdated address.')}</div>
+      {containerPreview.advertisedPeer !== containerPreview.sshPeer && <div className="notice warning">
+        {tr('Адрес в ссылке отличается от адреса SSH. Это может быть намеренно (NAT или отдельный публичный адрес); выберите нужный вариант.', 'The link address differs from the SSH address. This can be intentional (NAT or a separate public address); choose the appropriate endpoint.')}
+      </div>}
+      {error && <div className="notice error">{error}</div>}
+      <div className="field">
+        <label>{tr('Адрес сервера (peer), host:port', 'Server address (peer), host:port')}</label>
+        <input value={existingDraft.peer} onChange={e => setExistingDraft({...existingDraft, peer: e.target.value} as backend.Server)} />
+      </div>
+      <div className="modal-actions">
+        <button className="btn" disabled={busy} onClick={() => setExistingDraft({...existingDraft, peer: containerPreview.advertisedPeer} as backend.Server)}>
+          {tr('Адрес из ссылки', 'Link address')}: {containerPreview.advertisedPeer}
+        </button>
+        <button className="btn" disabled={busy} onClick={() => setExistingDraft({...existingDraft, peer: containerPreview.sshPeer} as backend.Server)}>
+          {tr('Адрес SSH-сервера', 'SSH server address')}: {containerPreview.sshPeer}
+        </button>
+      </div>
+      <p>{tr('Меняется только локальный профиль. Параметры контейнера и ключи не изменяются.', 'Only the local profile is changed. Container settings and keys are not modified.')}</p>
+      <div className="modal-actions">
+        <button className="btn" disabled={busy} onClick={() => setStep('existing')}>{tr('Назад', 'Back')}</button>
+        <button className="btn primary" disabled={busy || !existingDraft.peer} onClick={async () => {
+          setBusy(true); setError('')
+          try { onCreated(await SaveServer(existingDraft)) }
+          catch (e) { setError(String(e)) }
+          finally { setBusy(false) }
+        }}>{tr('Сохранить', 'Save')}</button>
+      </div>
+    </>
+  }
+
   if (step === 'existing') {
     return <>
 		{containers.length > 0 && <>
@@ -229,7 +264,14 @@ export default function CreateServerWizard({onCreated}: Props) {
 			<div className="field"><label>{tr('Имя устройства (desktop- и латиница, цифры, . _ -)', 'Device name (desktop- followed by letters, digits, . _ -)')}</label><input value={deviceName} maxLength={32} onChange={e => setDeviceName(e.target.value)} /></div>
 			<button className="btn primary" disabled={busy || !containerId || !/^desktop-[a-zA-Z0-9._-]{1,24}$/.test(deviceName)} onClick={async () => {
 				setBusy(true); setError('')
-				try { onCreated(await SetupAttachContainer(ssh, containerId, deviceName)) }
+				try {
+          const preview = await SetupPrepareContainer(ssh, containerId, deviceName)
+          setContainerPreview(preview)
+          // No endpoint is selected silently: an imported public host can be
+          // stale, while SSH can legitimately use a separate bastion/NAT host.
+          setExistingDraft({...preview.server, peer: ''} as backend.Server)
+          setStep('review')
+        }
 				catch (e) { setError(String(e)) }
 				finally { setBusy(false) }
 			}}>{busy ? tr('Подключение…', 'Connecting…') : tr('Использовать контейнер', 'Use container')}</button>

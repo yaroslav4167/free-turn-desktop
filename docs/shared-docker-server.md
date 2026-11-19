@@ -16,6 +16,15 @@ imports its complete official link. Every desktop gets a distinct generated
 name retrieves its configuration rather than creating a duplicate. Server
 settings, image and other users are not changed or restarted during attachment.
 
+The wizard reviews the issued relay endpoint before saving the local profile.
+The advertised public host in `install.conf` can be stale, even when the Docker
+listener, key and mode are correct. Both the advertised endpoint and the SSH
+host with the issued relay port are offered. No endpoint is rewritten silently:
+SSH may deliberately use a bastion or a different NAT address. Choosing the SSH
+address edits only the local profile; the server's public host, keys and other
+clients are unchanged. Canceling the review leaves the issued device on the
+server; retry the same device name to retrieve it instead of issuing another.
+
 Container-backed profiles keep their management type in saved SSH settings.
 Status, logs, explicit stop/restart and client management target Docker/the
 native controller, never the legacy desktop systemd start/reconfigure path.

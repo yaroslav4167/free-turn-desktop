@@ -1,4 +1,22 @@
-# FreeTurn Desktop v3.0.0
+# FreeTurn Desktop v3.0.1
+
+## Safer existing-container setup
+
+- Review the issued relay endpoint before saving a local profile. Stale
+  `PUBLIC_HOST` values in a VPS configuration no longer get selected silently.
+- Choose the address from the server link, the SSH host with the relay port,
+  or enter a custom endpoint. Saving is disabled until an address is selected.
+- Different SSH/public addresses can be intentional (NAT or bastion); the
+  client does not overwrite them or rewrite server configuration automatically.
+- SSH setup now explicitly accepts a domain and recommends DNS names for
+  servers whose IP can change. Existing saved profiles are not rewritten.
+- Imported keys, Client ID, AmneziaWG settings and DTLS pinning are preserved.
+
+For an already saved profile with an old IP, edit only its relay `peer` to
+the correct domain and port, save, and reconnect. This desktop update does not
+restart the VPS, change WireGuard keys, or regenerate users.
+
+## Unified desktop release
 
 One repository and release stream for Linux (amd64), Windows (amd64), and
 macOS (Apple Silicon and Intel): https://github.com/yaroslav4167/free-turn-desktop.
@@ -20,8 +38,7 @@ pass; this does not certify a live VPN connection on every user's network.
 
 ## Direct upgrade from the old repositories
 
-The old Linux, Windows and macOS repositories also distribute these exact
-v3.0.0 archives. Existing clients can update directly to v3.0.0 without an
-intermediate version. The installed v3.0.0 binary already points automatic
-updates to `yaroslav4167/free-turn-desktop`. Profiles and preferences remain
-in their existing locations. Older bridge downloads are no longer required.
+The old repositories distribute the verified v3.0.0 snapshots, which already
+point automatic updates here. Clients on v3.0.0 can install v3.0.1 directly
+from this repository. Profiles and preferences remain in their existing
+locations. Older v2.6.6/v1.1.4/v0.2.3 bridge downloads are not required.

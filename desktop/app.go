@@ -234,22 +234,21 @@ func (a *App) SetupProbe(cfg serversetup.SSHConfig) (*serversetup.ProbeResult, e
 // SetupAttachContainer registers a distinct device on the selected existing
 // installation, without installing, updating or restarting its server.
 func (a *App) SetupAttachContainer(cfg serversetup.SSHConfig, id, deviceName string) (backend.Server, error) {
-	link, err := serversetup.AttachDocker(cfg, id, deviceName)
+	preview, err := a.SetupPrepareContainer(cfg, id, deviceName)
 	if err != nil {
 		return backend.Server{}, err
 	}
-	parsed, err := backend.ParseShareLink(link)
+	return a.store.Save(preview.Server)
+}
+
+// SetupPrepareContainer issues/reuses a device but does not save a local
+// profile: the user must review its advertised endpoint first.
+func (a *App) SetupPrepareContainer(cfg serversetup.SSHConfig, id, deviceName string) (*backend.ContainerPreview, error) {
+	link, err := serversetup.AttachDocker(cfg, id, deviceName)
 	if err != nil {
-		return backend.Server{}, fmt.Errorf("контейнер вернул некорректную ссылку клиента")
+		return nil, err
 	}
-	srv := parsed.ApplyTo(backend.DefaultServer())
-	if srv.WgClientConf == "" || srv.ClientID == "" {
-		return backend.Server{}, fmt.Errorf("контейнер не вернул полный VPN-профиль")
-	}
-	cfg.Manager = serversetup.HackdiazDocker
-	srv.SSH = &cfg
-	srv.Name = cfg.IP
-	return a.store.Save(srv)
+	return backend.BuildContainerPreview(cfg, link)
 }
 
 func (a *App) SetupCreateContainer(cfg serversetup.SSHConfig, draft backend.ServerSetupDraft, wgPort int, deviceName string) (backend.Server, error) {

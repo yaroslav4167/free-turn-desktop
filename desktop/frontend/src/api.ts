@@ -13,3 +13,10 @@ export const SetupAttachContainer = (cfg: import('../wailsjs/go/models').servers
   (window as any).go.main.App.SetupAttachContainer(cfg, id, name)
 export const SetupCreateContainer = (cfg: import('../wailsjs/go/models').serversetup.SSHConfig, draft: import('../wailsjs/go/models').backend.ServerSetupDraft, wgPort: number, name: string): Promise<import('../wailsjs/go/models').backend.Server> =>
   (window as any).go.main.App.SetupCreateContainer(cfg, draft, wgPort, name)
+export interface ContainerPreview {
+  server: import('../wailsjs/go/models').backend.Server;
+  advertisedPeer: string;
+  sshPeer: string;
+}
+export const SetupPrepareContainer = (cfg: import('../wailsjs/go/models').serversetup.SSHConfig, id: string, name: string): Promise<ContainerPreview> =>
+  (window as any).go.main.App.SetupPrepareContainer(cfg, id, name)
