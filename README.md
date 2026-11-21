@@ -49,8 +49,8 @@ WireGuard и AmneziaWG через TURN — с понятным интерфей�
 При включении VPN статус и индикатор появляются сразу, ещё во время подготовки
 маршрутов и системного helper; подключение можно отменить.
 
-В текущей ветке `main` добавлены **светлая, тёмная и системная темы**
-(ещё не входят в v3.0.3). Выбор в настройках сохраняется и применяется без
+Начиная с v3.0.4 доступны **светлая, тёмная и системная темы**.
+По умолчанию — «Как в системе». Выбор в настройках сохраняется и применяется без
 перезапуска VPN; системный режим реагирует на смену темы ОС.
 [Пример светлой темы](docs/screenshots/settings-light.png) — браузерный макет с демонстрационными данными.
 
@@ -156,20 +156,20 @@ WireGuard и AmneziaWG через TURN — с понятным интерфей�
 **Linux:** установите пакеты разработки GTK3 и WebKit2GTK 4.1, затем выполните:
 
 ```sh
-VERSION=v3.0.3 sh packaging/linux/build-desktop.sh
+VERSION=v3.0.4 sh packaging/linux/build-desktop.sh
 ```
 
 **Windows:** установите нативные зависимости Wails и запустите в PowerShell 7:
 
 ```powershell
-$env:RELEASE_TAG = 'v3.0.3'
+$env:RELEASE_TAG = 'v3.0.4'
 ./packaging/windows/build-desktop.ps1
 ```
 
 **macOS:** установите Xcode Command Line Tools, затем выполните:
 
 ```sh
-RELEASE_TAG=v3.0.3 sh packaging/macos/build-desktop.sh
+RELEASE_TAG=v3.0.4 sh packaging/macos/build-desktop.sh
 ```
 
 `UPDATE_REPOSITORY` по умолчанию указывает на `yaroslav4167/free-turn-desktop`.

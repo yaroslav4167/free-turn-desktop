@@ -1631,7 +1631,7 @@ button:disabled {
 .theme-row { flex-wrap: wrap; }
 .theme-options { display: flex; flex-wrap: wrap; gap: 4px; }
 .theme-option { position: relative; cursor: pointer; }
-.theme-choice { display: flex; align-items: center; flex-direction: column; gap: 4px; min-width: 72px; min-height: 44px; padding: 5px 8px; border: 1px solid transparent; border-radius: 9px; color: var(--text-dim); font-size: 11px; }
+.theme-choice { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 5px; border: 1px solid transparent; border-radius: 50%; color: var(--text-dim); }
 .theme-swatch { display: block; flex-shrink: 0; }
 .theme-option input:checked + .theme-choice { color: var(--text); border-color: var(--accent); background: var(--accent-dim); }
 .theme-option:hover .theme-choice { border-color: var(--accent); }

@@ -12,16 +12,15 @@ export default function ThemePicker({value, disabled, onChange}: {
     {value:'dark', label:tr('Тёмная', 'Dark')},
   ]
   return <div className="theme-options" role="radiogroup" aria-label={tr('Тема оформления', 'Appearance')}>
-    {choices.map(choice => <label className="theme-option" key={choice.value}>
+    {choices.map(choice => <label className="theme-option" key={choice.value} title={choice.label}>
       <input id={`interface-theme-${choice.value}`} className="sr-only" type="radio" name="interface-theme"
-        value={choice.value} checked={value===choice.value} disabled={disabled} onChange={()=>onChange(choice.value)} />
+        value={choice.value} aria-label={choice.label} checked={value===choice.value} disabled={disabled} onChange={()=>onChange(choice.value)} />
       <span className="theme-choice">
-        <svg className="theme-swatch" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
+        <svg className="theme-swatch" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true">
           <circle cx="16" cy="16" r="14" fill={choice.value==='dark'?'#1b1c24':'#f5f6fa'} />
           {choice.value==='system'&&<path d="M16 2a14 14 0 0 1 0 28Z" fill="#1b1c24" />}
           <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" />
         </svg>
-        <span>{choice.label}</span>
       </span>
     </label>)}
   </div>
