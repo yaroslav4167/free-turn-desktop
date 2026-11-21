@@ -30,7 +30,7 @@ Removal requests administrator approval and revokes only this user's helper acce
 
 ## Desktop integration
 
-**FT** in the menu bar opens or quits FreeTurn. Close-to-menu-bar, start at login and optional auto-connect are available in Settings. Start at login requires the app to be in `/Applications` or `~/Applications`; macOS may show it under Login Items. Captcha notifications ask for notification permission, and open verification only after a click. The in-app notification remains available if system notifications are denied.
+The **FreeTurn symbol** in the menu bar opens or quits FreeTurn. It is a monochrome template image whose colour follows the system appearance. Close-to-menu-bar, start at login and optional auto-connect are available in Settings. Start at login requires the app to be in `/Applications` or `~/Applications`; macOS may show it under Login Items. Captcha notifications ask for notification permission, and open verification only after a click. The in-app notification remains available if system notifications are denied.
 
 FreeTurn checks this repository for updates automatically. In Settings, choose **Download and install** and confirm the restart. The updater verifies the SHA-256 checksum, native architecture and complete bundle signature, disconnects the VPN, replaces the entire app including its helper, and restarts it. If the new interface fails to start, the previous version is restored. Profiles and preferences are retained.
 
@@ -61,7 +61,8 @@ Core sources and Linux packaging remain for upstream compatibility. No Apple Dev
 
 ## Shared interface examples
 
-The inherited screenshots illustrate the shared UI; they are Linux captures, not macOS screenshots.
+The screenshots illustrate the shared UI using non-sensitive demonstration data
+in a browser mock. They are not native macOS screenshots or live VPN verification.
 
 ![Connection](screenshots/connection.png)
 ![Servers](screenshots/servers.png)

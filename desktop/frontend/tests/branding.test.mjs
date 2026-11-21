@@ -6,10 +6,28 @@ import {join} from 'node:path'
 
 const root = fileURLToPath(new URL('../../../', import.meta.url))
 
-test('favicon and frontend icon match the canonical SVG', () => {
+test('application favicon and flat interface icon use separate canonical SVGs', () => {
   const original = readFileSync(join(root, 'desktop/assets/icon.svg'))
-  assert.deepEqual(readFileSync(join(root, 'desktop/frontend/public/freeturn.svg')), original)
-  assert.match(readFileSync(join(root, 'desktop/frontend/index.html'), 'utf8'), /href="\/freeturn\.svg"/)
+  const flat = readFileSync(join(root, 'desktop/assets/interface.svg'))
+  assert.deepEqual(readFileSync(join(root, 'desktop/frontend/public/freeturn.svg')), flat)
+  assert.deepEqual(readFileSync(join(root, 'desktop/frontend/public/favicon.svg')), original)
+  assert.notDeepEqual(original, flat)
+  assert.doesNotMatch(flat.toString(), /<rect|linearGradient|radialGradient/)
+  assert.doesNotMatch(original.toString(), /<rect/)
+  assert.match(readFileSync(join(root, 'desktop/frontend/index.html'), 'utf8'), /href="\/favicon\.svg"/)
+})
+
+test('native tray implementations use dedicated dense symbolic artwork', () => {
+  const windows = readFileSync(join(root, 'desktop/tray/icon_windows.go'), 'utf8')
+  assert.match(windows, /appassets.TrayIconICO/)
+  assert.match(windows, /appassets.TrayLightIconICO/)
+  assert.match(windows, /SystemUsesLightTheme/)
+  assert.doesNotMatch(readFileSync(join(root, 'desktop/tray/tray_windows.go'), 'utf8'), /ExtractIconExW/)
+  const mac = readFileSync(join(root, 'desktop/tray/tray_darwin.m'), 'utf8')
+  assert.match(mac, /dataWithBytes:icon/)
+  assert.match(mac, /setTemplate:YES/)
+  assert.match(mac, /imagePosition=NSImageOnly/)
+  assert.ok(readFileSync(join(root, 'docs/licenses/android-branding-GPL-3.0.txt'), 'utf8').includes('GNU GENERAL PUBLIC LICENSE'))
 })
 
 test('Wails build uses the generated high-resolution application icon', () => {
@@ -64,7 +82,7 @@ test('Russian README opens with the canonical logo and interface collage', () =>
   for (const heading of ['## Возможности', '## Скачать', '## Установка', '## Сборка из исходников']) {
     assert.ok(readme.includes(heading), heading)
   }
-  assert.match(readme, /демонстрационные|Демонстрационные/)
+  assert.match(readme, /демонстрационн/i)
   const png = readFileSync(join(root, 'docs/screenshots/interface-collage.png'))
   assert.equal(png.subarray(1, 4).toString(), 'PNG')
   assert.equal(png.readUInt32BE(16), 1920)

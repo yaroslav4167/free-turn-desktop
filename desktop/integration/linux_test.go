@@ -77,6 +77,10 @@ func TestInstallAndAutostart(t *testing.T) {
 	if err != nil || !bytes.Equal(icon, appassets.IconSVG) {
 		t.Fatalf("application icon was not installed: %v", err)
 	}
+	icon64, err := os.ReadFile(filepath.Join(os.Getenv("XDG_DATA_HOME"), "icons", "hicolor", "64x64", "apps", "freeturn.png"))
+	if err != nil || !bytes.Equal(icon64, appassets.Icon64PNG) || bytes.Equal(icon64, appassets.TrayIconPNG) {
+		t.Fatal("desktop launcher must use the colour app icon, not the symbolic tray icon")
+	}
 	if err := SetAutostart(true); err != nil {
 		t.Fatal(err)
 	}

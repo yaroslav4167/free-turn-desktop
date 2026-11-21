@@ -133,11 +133,23 @@ func TestBothTrayVariantsHaveValidContrastingPixmaps(t *testing.T) {
 			t.Fatal("icon corners must remain transparent")
 		}
 	}
-	// A point on the tile, away from the dark lettering and green route.
-	offset := (32*64 + 8) * 4
-	for channel := 1; channel <= 3; channel++ {
-		if light[0].Pixels[offset+channel] < 200 || normal[0].Pixels[offset+channel] > 80 {
-			t.Fatal("light variant must have a bright, contrasting tile")
+	// Both variants use the same transparent silhouette, not a background tile.
+	opaque := 0
+	for offset := 0; offset < len(normal[0].Pixels); offset += 4 {
+		if normal[0].Pixels[offset] != light[0].Pixels[offset] {
+			t.Fatal("theme variants must preserve the dense symbol silhouette")
 		}
+		if normal[0].Pixels[offset] != 255 {
+			continue
+		}
+		opaque++
+		for channel := 1; channel <= 3; channel++ {
+			if light[0].Pixels[offset+channel] < 200 || normal[0].Pixels[offset+channel] > 100 {
+				t.Fatal("tray symbols must contrast on light and dark panels")
+			}
+		}
+	}
+	if opaque < 100 || opaque > 64*64/2 {
+		t.Fatal("missing symbol or opaque background tile")
 	}
 }

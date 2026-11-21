@@ -34,3 +34,13 @@ func TestTrayLifecycle(t *testing.T) {
 	_ = showCalled
 	_ = quitCalled
 }
+
+func TestDenseNativeTrayIcons(t *testing.T) {
+	for _, light := range []bool{false, true} {
+		handle, err := loadWindowsTrayIcon(light)
+		if err != nil || handle == 0 {
+			t.Fatalf("load native tray icon: %v", err)
+		}
+		pDestroyIcon.Call(uintptr(handle))
+	}
+}

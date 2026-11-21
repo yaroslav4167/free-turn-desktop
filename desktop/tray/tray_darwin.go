@@ -6,13 +6,14 @@ package tray
 #cgo CFLAGS: -x objective-c -fobjc-arc
 #cgo LDFLAGS: -framework Cocoa
 #include <stdlib.h>
-void freeturn_tray_start(const char *title, const char *open, const char *quit);
+void freeturn_tray_start(const char *title, const char *open, const char *quit, const unsigned char *icon, int length);
 void freeturn_tray_close(void);
 void freeturn_tray_language(const char *open, const char *quit);
 */
 import "C"
 import (
 	"errors"
+	appassets "github.com/samosvalishe/free-turn-proxy/desktop/assets"
 	"github.com/samosvalishe/free-turn-proxy/desktop/locale"
 	"sync"
 	"sync/atomic"
@@ -40,7 +41,8 @@ func Start(title string, onShow, onQuit func()) (*Tray, error) {
 	defer C.free(unsafe.Pointer(a))
 	defer C.free(unsafe.Pointer(b))
 	defer C.free(unsafe.Pointer(c))
-	C.freeturn_tray_start(a, b, c)
+	data := appassets.TrayIconPNG
+	C.freeturn_tray_start(a, b, c, (*C.uchar)(unsafe.Pointer(&data[0])), C.int(len(data)))
 	return t, nil
 }
 func (t *Tray) Available() bool { return t != nil && t.available.Load() }

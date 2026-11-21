@@ -35,6 +35,8 @@ plist="$stage/FreeTurn.app/Contents/Info.plist"
 /usr/bin/plutil -lint "$plist"
 cp LICENSE "$stage/FreeTurn.app/Contents/Resources/LICENSE"
 cp packaging/macos/INSTALL.txt "$stage/FreeTurn.app/Contents/Resources/INSTALL.txt"
+cp docs/branding.md "$stage/FreeTurn.app/Contents/Resources/BRANDING.md"
+cp -R docs/licenses "$stage/FreeTurn.app/Contents/Resources/licenses"
 identity=${MACOS_SIGN_IDENTITY:--}
 /usr/bin/codesign --force --sign "$identity" --timestamp=none "$stage/FreeTurn.app/Contents/MacOS/freeturn-vpn-helper"
 /usr/bin/codesign --force --sign "$identity" --timestamp=none "$stage/FreeTurn.app"

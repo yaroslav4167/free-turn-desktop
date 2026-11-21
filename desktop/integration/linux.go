@@ -132,7 +132,7 @@ func installIcons(dir string) error {
 	icons := map[string][]byte{
 		"scalable/apps/freeturn.svg": appassets.IconSVG,
 		"512x512/apps/freeturn.png":  appassets.IconPNG,
-		"64x64/apps/freeturn.png":    appassets.TrayIconPNG,
+		"64x64/apps/freeturn.png":    appassets.Icon64PNG,
 	}
 	for name, data := range icons {
 		path := filepath.Join(dir, "icons", "hicolor", name)

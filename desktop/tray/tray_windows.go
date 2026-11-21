@@ -42,14 +42,13 @@ const (
 	wmRButtonUp     = 0x0205
 	wmContextMenu   = 0x007B
 	wmNull          = 0x0000
+	wmSettingChange = 0x001A
+	wmThemeChanged  = 0x031A
 
 	// Menu flags
 	mfString       = 0x00000000
 	mfSeparator    = 0x00000800
 	tpmRightButton = 0x0002
-
-	// LoadIcon constants
-	idiApplication = 32512
 )
 
 var (
@@ -76,9 +75,7 @@ var (
 	pDestroyMenu         = user32.NewProc("DestroyMenu")
 	pGetCursorPos        = user32.NewProc("GetCursorPos")
 	pSetForegroundWindow = user32.NewProc("SetForegroundWindow")
-	pLoadIconW           = user32.NewProc("LoadIconW")
 	pDestroyIcon         = user32.NewProc("DestroyIcon")
-	pExtractIconExW      = shell32.NewProc("ExtractIconExW")
 )
 
 type wndClassExW struct {
@@ -122,6 +119,8 @@ type notifyIconDataW struct {
 // Tray controls the Windows system tray lifecycle.
 type Tray struct {
 	hwnd      windows.Handle
+	hIcon     windows.Handle
+	lightIcon bool
 	onShow    func()
 	onQuit    func()
 	closed    chan struct{}
@@ -139,6 +138,10 @@ func wndProc(hwnd windows.Handle, msg uint32, wParam, lParam uintptr) uintptr {
 	activeTrayMu.RUnlock()
 
 	switch msg {
+	case wmSettingChange, wmThemeChanged:
+		if t != nil {
+			t.refreshIcon()
+		}
 	case wmTrayIcon:
 		switch lParam {
 		case wmLButtonUp, wmLButtonDblClk:
@@ -201,29 +204,6 @@ func (t *Tray) showMenu() {
 	pSetForegroundWindow.Call(uintptr(t.hwnd))
 	pTrackPopupMenuEx.Call(hMenu, uintptr(tpmRightButton), uintptr(pt.x), uintptr(pt.y), uintptr(t.hwnd), 0)
 	pPostMessageW.Call(uintptr(t.hwnd), uintptr(wmNull), 0, 0)
-}
-
-func getAppIcon() (windows.Handle, bool) {
-	// Try to get icon from current executable
-	var exePath [windows.MAX_PATH]uint16
-	n, err := windows.GetModuleFileName(0, &exePath[0], uint32(len(exePath)))
-	if err == nil && n > 0 {
-		var hIcon windows.Handle
-		ret, _, _ := pExtractIconExW.Call(
-			uintptr(unsafe.Pointer(&exePath[0])),
-			0,
-			0,
-			uintptr(unsafe.Pointer(&hIcon)),
-			1,
-		)
-		if ret > 0 && hIcon != 0 {
-			return hIcon, true
-		}
-	}
-
-	// Fallback to standard application icon
-	hIcon, _, _ := pLoadIconW.Call(0, uintptr(idiApplication))
-	return windows.Handle(hIcon), false
 }
 
 // Start creates and initializes the tray icon and message loop.
@@ -289,7 +269,17 @@ func Start(title string, onShow func(), onQuit func()) (*Tray, error) {
 		activeTrays[tray.hwnd] = tray
 		activeTrayMu.Unlock()
 
-		hIcon, shouldDestroyIcon := getAppIcon()
+		tray.lightIcon = preferLightWindowsTrayIcon()
+		hIcon, err := loadWindowsTrayIcon(tray.lightIcon)
+		if err != nil {
+			pDestroyWindow.Call(uintptr(tray.hwnd))
+			activeTrayMu.Lock()
+			delete(activeTrays, tray.hwnd)
+			activeTrayMu.Unlock()
+			ready <- err
+			return
+		}
+		tray.hIcon = hIcon
 
 		nid := notifyIconDataW{
 			hWnd:             tray.hwnd,
@@ -307,7 +297,7 @@ func Start(title string, onShow func(), onQuit func()) (*Tray, error) {
 
 		ret, _, _ := pShell_NotifyIconW.Call(uintptr(nimAdd), uintptr(unsafe.Pointer(&nid)))
 		if ret == 0 {
-			if shouldDestroyIcon && hIcon != 0 {
+			if hIcon != 0 {
 				pDestroyIcon.Call(uintptr(hIcon))
 			}
 			pDestroyWindow.Call(uintptr(tray.hwnd))
@@ -349,8 +339,8 @@ func Start(title string, onShow func(), onQuit func()) (*Tray, error) {
 		delNid.cbSize = uint32(unsafe.Sizeof(delNid))
 		pShell_NotifyIconW.Call(uintptr(nimDelete), uintptr(unsafe.Pointer(&delNid)))
 
-		if shouldDestroyIcon && hIcon != 0 {
-			pDestroyIcon.Call(uintptr(hIcon))
+		if tray.hIcon != 0 {
+			pDestroyIcon.Call(uintptr(tray.hIcon))
 		}
 
 		activeTrayMu.Lock()

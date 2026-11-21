@@ -17,7 +17,7 @@ WireGuard и AmneziaWG через TURN — с понятным интерфей�
 
 <img src="docs/screenshots/interface-collage.png" alt="Интерфейс FreeTurn: подключение и трафик, профили серверов и настройки приложения" width="1200">
 
-<sub>Демонстрационные экраны общего интерфейса. Использованы снимки Linux-версии; детали могут отличаться в зависимости от платформы и версии.</sub>
+<sub>Общий интерфейс с демонстрационными данными. Снимки получены в браузерном макете; детали могут отличаться на разных платформах.</sub>
 
 </div>
 
@@ -35,6 +35,9 @@ WireGuard и AmneziaWG через TURN — с понятным интерфей�
 
 Нативная VPN-интеграция сохранена для каждой системы: **VPN-helper на Linux**,
 **Wintun на Windows**, **utun и launchd-helper на macOS**.
+
+Оформление использует три отдельных ресурса: цветной знак приложения без фона,
+плоский знак внутри интерфейса и плотный одноцветный значок трея.
 
 ## Скачать
 
@@ -176,9 +179,12 @@ go run scripts/render-readme-collage.go
 - [Локализация интерфейса](docs/localization.md)
 - [Интеграция с macOS](docs/macos.md)
 - [Описание последнего выпуска](RELEASE_NOTES_DESKTOP.md)
+- [Происхождение логотипа и пересоздание иконок](docs/branding.md)
 
 В основе проекта — [FreeTurn Proxy](https://github.com/hackdiaz-dev/free-turn-proxy).
 Сохранены история и наработки отдельных десктопных форков, а также исходные указания
 авторства. Путь Go-модуля оставлен прежним для совместимости импортов.
 
-Лицензия — [LICENSE](LICENSE).
+Лицензия кода — [LICENSE](LICENSE). Знак адаптирован из Android-клиента
+[hackdiaz-dev/turn-proxy-android](https://github.com/hackdiaz-dev/turn-proxy-android);
+для этих визуальных ресурсов сохранена отдельная [GNU GPL v3](docs/licenses/android-branding-GPL-3.0.txt).

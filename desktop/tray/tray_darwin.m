@@ -24,14 +24,25 @@ static void bindQuitShortcut(void) {
   }
  }
 }
-void freeturn_tray_start(const char *title, const char *open, const char *quit) {
- NSString *name=[NSString stringWithUTF8String:title],*openTitle=[NSString stringWithUTF8String:open],*quitTitle=[NSString stringWithUTF8String:quit];
+void freeturn_tray_start(const char *title, const char *open, const char *quit, const unsigned char *icon, int length) {
+  NSString *name=[NSString stringWithUTF8String:title],*openTitle=[NSString stringWithUTF8String:open],*quitTitle=[NSString stringWithUTF8String:quit];
+  // Copy Go-owned bytes before scheduling asynchronous AppKit work.
+  NSData *iconData=[NSData dataWithBytes:icon length:(NSUInteger)length];
  dispatch_async(dispatch_get_main_queue(), ^{
   target=[FreeTurnTrayTarget new];
   launchObserver=[[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationDidFinishLaunchingNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) { bindQuitShortcut(); }];
   bindQuitShortcut();
   statusItem=[[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
-  statusItem.button.title=@"FT";
+   NSImage *image=[[NSImage alloc] initWithData:iconData];
+   if (image) {
+    image.size=NSMakeSize(18,18);
+    [image setTemplate:YES];
+    statusItem.button.image=image;
+    statusItem.button.imagePosition=NSImageOnly;
+    statusItem.button.title=@"";
+   } else {
+    statusItem.button.title=@"FT";
+   }
   statusItem.button.toolTip=name;
   NSMenu *menu=[NSMenu new];
   NSMenuItem *show=[[NSMenuItem alloc] initWithTitle:openTitle action:@selector(show:) keyEquivalent:@""]; show.target=target;
