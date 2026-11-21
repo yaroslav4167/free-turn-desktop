@@ -24,13 +24,16 @@ export default function AddServerModal({onClose, onCreated}: Props) {
     setPreview(null)
     setError('')
     if (tab !== 'link' || linkText.trim() === '') return
+    let active = true
     const t = setTimeout(() => {
       ParseLink(linkText.trim())
-        .then(setPreview)
-        .catch((e) => setError(String(e)))
+        .then(value => { if (active) setPreview(value) })
+        .catch((e) => { if (active) setError(String(e)) })
     }, 250)
-    return () => clearTimeout(t)
+    return () => { active = false; clearTimeout(t) }
   }, [linkText, tab])
+
+  const includedVKLink = preview?.vkLink || ''
 
   const submitLink = async () => {
     setBusy(true)
@@ -99,8 +102,9 @@ export default function AddServerModal({onClose, onCreated}: Props) {
               <textarea value={linkText} onChange={(e) => setLinkText(e.target.value)} placeholder="freeturn://..." />
             </div>
             <div className="field">
-              <label>{tr('Ваша ссылка на звонок VK Calls', 'Your VK Calls link')}</label>
-              <input type="text" value={vkLink} onChange={(e) => setVkLink(e.target.value)} placeholder="https://vk.ru/call/join/..." />
+              <label htmlFor="import-vk-link">{includedVKLink ? tr('Ссылка на звонок VK Calls из профиля', 'VK Calls link included in the profile') : tr('Ваша ссылка на звонок VK Calls', 'Your VK Calls link')}</label>
+              <input id="import-vk-link" type="text" value={includedVKLink || vkLink} readOnly={!!includedVKLink} aria-describedby={includedVKLink ? 'import-vk-note' : undefined} onChange={(e) => setVkLink(e.target.value)} placeholder="https://vk.ru/call/join/..." />
+              {includedVKLink && <p id="import-vk-note" className="settings-note">{tr('Владелец включил эту ссылку в профиль. Она будет сохранена при импорте; изменить её можно в настройках профиля.', 'The owner included this link in the profile. It will be saved on import; you can change it in the profile settings.')}</p>}
             </div>
             {preview && (
               <div className="notice info">
