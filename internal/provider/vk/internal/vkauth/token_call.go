@@ -25,9 +25,18 @@ func (c *Client) fetchCallToken(
 	urlAddr := fmt.Sprintf("https://api.vk.ru/method/calls.getAnonymousToken?v=%s&client_id=%s", APIVersion, creds.ClientID)
 	data := fmt.Sprintf("vk_join_link=https://vk.ru/call/join/%s&name=%s&access_token=%s",
 		link, escapedName, token1)
+	baseData := data
+	rechecked := false
+	request := c.requestFn
+	if request == nil {
+		request = c.doRequest
+	}
 
 	for {
-		resp, err := c.doRequest(ctx, httpClient, profile, data, urlAddr)
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		resp, err := request(ctx, httpClient, profile, data, urlAddr)
 		if err != nil {
 			return "", err
 		}
@@ -35,6 +44,22 @@ func (c *Client) fetchCallToken(
 		if errObj, hasErr := resp["error"].(map[string]any); hasErr {
 			captchaErr := captcha.ParseError(errObj)
 			if captchaErr != nil && captchaErr.IsCaptcha() {
+				// A transient challenge may no longer be required on the next
+				// request. Recheck once with the same identity before advancing
+				// the solve ladder or presenting an obsolete browser challenge.
+				if !rechecked {
+					rechecked = true
+					c.log.Infof("[STREAM %d] [Captcha] Rechecking authorization once before solving", streamID)
+					timer := time.NewTimer(time.Second)
+					select {
+					case <-ctx.Done():
+						timer.Stop()
+						return "", ctx.Err()
+					case <-timer.C:
+					}
+					data = baseData
+					continue
+				}
 				retryData, err := c.solveCaptcha(ctx, httpClient, profile, streamID, link, escapedName, token1, captchaErr)
 				if err != nil {
 					return "", err

@@ -364,6 +364,9 @@ func startCaptchaServer(srv *http.Server, logPrefix string) error {
 // runCaptchaServerAndWait открывает браузер и ждёт токен решения.
 // При срабатывании ctx возвращает ctx.Err(); в обоих случаях HTTP-сервер останавливается.
 func runCaptchaServerAndWait(ctx context.Context, handler http.Handler, captchaURL string, keyCh <-chan string, logPrefix string, present func(string)) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 
 	if err := startCaptchaServer(srv, logPrefix); err != nil {
@@ -387,6 +390,9 @@ func runCaptchaServerAndWait(ctx context.Context, handler http.Handler, captchaU
 	fmt.Println("==============================================")
 	fmt.Println()
 
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	present(captchaURL)
 
 	select {

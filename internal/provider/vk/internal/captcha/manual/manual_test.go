@@ -38,6 +38,17 @@ func TestRunCaptchaServerPresentsAfterListen(t *testing.T) {
 	}
 }
 
+func TestCancelledCaptchaDoesNotStartServerOrPresent(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := runCaptchaServerAndWait(ctx, nil, localCaptchaOrigin(), nil, "test", func(string) {
+		t.Fatal("obsolete captcha presented")
+	})
+	if err != context.Canceled {
+		t.Fatal(err)
+	}
+}
+
 func TestCaptchaHooksPrecedeUpstreamScripts(t *testing.T) {
 	target, _ := url.Parse("https://id.vk.ru/captcha")
 	for _, head := range []string{"<head>", `<HEAD data-test="1">`, "<head lang='ru'>"} {
