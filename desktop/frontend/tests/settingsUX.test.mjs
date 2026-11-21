@@ -124,3 +124,12 @@ test('scrollbars are themed without hiding scrolling or overriding high-contrast
   assert.match(css,/scrollbar-color: auto; scrollbar-width: auto/)
   assert.doesNotMatch(css,/scrollbar-width:\s*none/)
 })
+
+test('settings use compact spacing without shrinking controls or switch hit areas', () => {
+  const css=read('style.css')
+  assert.match(css,/\.preference-row\s*\{[^}]*min-height: 44px;[^}]*padding: 8px 0;/)
+  assert.match(css,/\.settings-card\s*\{[^}]*padding: 16px;[^}]*margin-bottom: 12px;/)
+  assert.match(css,/\.profile-settings \.field-group, \.detail-body > \.field-group \{ margin-bottom: 12px;/)
+  assert.match(css,/--settings-control-height: 36px/)
+  assert.match(css,/\.field input.stream-slider\s*\{[^}]*height: 28px/)
+})
