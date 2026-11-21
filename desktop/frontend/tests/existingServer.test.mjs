@@ -23,8 +23,10 @@ test('container reuse creates a device, never reinstalls its server', () => {
 test('container endpoints are reviewed before local save, never silently replaced', () => {
   const review = wizard.slice(wizard.indexOf("if (step === 'review'"), wizard.indexOf("if (step === 'existing')"))
   assert.match(review, /containerPreview.needsReview/)
-  assert.match(review, /peer: containerPreview.advertisedPeer/)
-  assert.match(review, /peer: containerPreview.sshPeer/)
+  assert.match(review, /containerPreview.advertisedPeer/)
+  assert.match(review, /containerPreview.sshPeer/)
+  assert.match(review, /type="radio"/)
+  assert.match(review, /checked=\{existingDraft.peer===peer\}/)
   assert.match(review, /SaveServer\(existingDraft\)/)
   assert.match(wizard, /setExistingDraft\(\{\.\.\.preview.server, peer: ''\}/)
   assert.match(review, /disabled=\{busy \|\| !existingDraft.peer\}/)

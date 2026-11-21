@@ -25,6 +25,8 @@ export default function Sidebar({servers, selectedId, activeState, activeServerI
               type="button"
               key={s.id}
               className={'server-item' + (s.id === selectedId ? ' active' : '')}
+              aria-current={s.id === selectedId ? 'true' : undefined}
+              title={`${s.name || s.peer} · ${s.peer}`}
               onClick={() => onSelect(s.id)}
             >
               <span className={'dot' + (isActive ? ' ' + activeState : '')} />

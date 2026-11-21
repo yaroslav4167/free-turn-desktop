@@ -28,6 +28,7 @@ interface Props {
   selected: backend.Server | null
   status: backend.Status
   pending: boolean
+  pendingServerId?: string | null
   trafficHistory: TrafficHistory
   onSelect: (id: string) => void
   onConnect: () => void
@@ -41,6 +42,7 @@ export default function Connection({
   selected,
   status,
   pending,
+  pendingServerId,
   trafficHistory,
   onSelect,
   onConnect,
@@ -48,8 +50,8 @@ export default function Connection({
   onAdd,
   onEdit,
 }: Props) {
-  const active = !['idle', 'error'].includes(status.state)
-  const activeServer = servers.find((s) => s.id === status.serverId)
+  const active = pending || !['idle', 'error'].includes(status.state)
+  const activeServer = servers.find((s) => s.id === (pending ? pendingServerId ?? selected?.id : status.serverId))
   const vpn = (active ? activeServer : selected)?.connMode === 'vpn'
   const presentation = connectionState(status.state, pending, vpn)
   const connected = presentation.connected

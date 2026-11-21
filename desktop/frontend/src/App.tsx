@@ -59,7 +59,8 @@ export default function App() {
   const [showAdd, setShowAdd] = useState(false)
   const [view, setView] = useState<View>('connect')
   const [settingsOpened, setSettingsOpened] = useState(false)
-  const [pending, setPending] = useState(false)
+  const [pendingServerId, setPendingServerId] = useState<string | null>(null)
+  const pending = pendingServerId !== null
   const [trafficHistory, setTrafficHistory] = useState(EMPTY_TRAFFIC_HISTORY)
 
   useEffect(() => {
@@ -126,7 +127,8 @@ export default function App() {
 
   const handleDelete = async () => {
     if (!draft?.id) return
-    if (!window.confirm(tr('Удалить сервер «{name}»?', {name: draft.name || draft.peer}))) return
+    if (pending || (status.serverId === draft.id && !['idle','error'].includes(status.state))) return
+    if (!window.confirm(tr('Удалить локальный профиль «{name}»? Сервер на VPS и его пользователи не будут удалены.', {name: draft.name || draft.peer}))) return
     await DeleteServer(draft.id)
     setServers((prev) => prev.filter((s) => s.id !== draft.id))
     setSelectedId(null)
@@ -136,9 +138,10 @@ export default function App() {
     if (!draft || pending) return
     const request = ++connectionRequest.current
     setConnectError('')
-    setPending(true)
+    setPendingServerId(draft.id)
     try {
       if (dirty) await handleSave()
+      if (request !== connectionRequest.current) return
       // Connect always force-stops whatever was running first (a different
       // server, or a stuck half-failed attempt on this one), so no need to
       // orchestrate a separate Disconnect from here.
@@ -146,13 +149,13 @@ export default function App() {
     } catch (e) {
       if (request === connectionRequest.current) setConnectError(String(e))
     } finally {
-      if (request === connectionRequest.current) setPending(false)
+      if (request === connectionRequest.current) setPendingServerId(null)
     }
   }
 
   const handleDisconnect = () => {
     connectionRequest.current++
-    setPending(false)
+    setPendingServerId(null)
     void Disconnect().catch(e => setConnectError(String(e)))
   }
 
@@ -183,6 +186,7 @@ export default function App() {
             selected={savedSelected}
             status={status}
             pending={pending}
+            pendingServerId={pendingServerId}
             trafficHistory={trafficHistory}
             onSelect={selectServer}
             onConnect={handleConnect}
@@ -225,6 +229,7 @@ export default function App() {
                   dirty={dirty}
                   status={status}
                   isActive={status.serverId === draft.id}
+                  pendingServerId={pendingServerId}
                   logs={logs}
                   onChange={setDraft}
                   onSave={() => {

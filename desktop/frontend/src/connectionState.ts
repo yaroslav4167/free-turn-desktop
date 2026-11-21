@@ -6,9 +6,9 @@ export function connectionState(state: string, pending: boolean, vpn: boolean) {
     captcha: tr('Требуется проверка', 'Verification required'),
     error: tr('Не удалось подключиться', 'Connection failed'),
   }
-  const active = state !== 'idle' && state !== 'error'
+  const active = pending || (state !== 'idle' && state !== 'error')
   const connected = state === 'connected' && !pending
-  const visualState = pending && state !== 'captcha' && state !== 'error' ? 'connecting' : state
+  const visualState = pending && state !== 'captcha' ? 'connecting' : state
   return {
     active,
     connected,

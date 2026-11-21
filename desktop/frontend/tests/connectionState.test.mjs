@@ -29,7 +29,7 @@ test('idle, captcha and errors do not show an enabled state', () => {
   assert.equal(connectionState('idle', false, true).busy, false)
   assert.equal(connectionState('captcha', true, true).heading, 'Требуется проверка')
   assert.equal(connectionState('captcha', true, true).busy, false)
-  assert.equal(connectionState('error', true, true).busy, false)
+  assert.equal(connectionState('error', true, true).busy, true) // A retry must not keep displaying the stale error.
 })
 
 test('connecting and captcha use the main button to cancel without an extra button', () => {

@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react'
 import {backend, ImportLink, NewServer, ParseLink, SaveServer} from '../api'
 import CreateServerWizard from './CreateServerWizard'
 import {tr} from '../language'
+import {useDialogFocus} from '../useDialogFocus'
 
 interface Props {
   onClose: () => void
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function AddServerModal({onClose, onCreated}: Props) {
+  const dialog = useDialogFocus(onClose)
   const [tab, setTab] = useState<'link' | 'manual' | 'deploy'>('link')
   const [name, setName] = useState('')
   const [vkLink, setVkLink] = useState('')
@@ -65,18 +67,18 @@ export default function AddServerModal({onClose, onCreated}: Props) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>{tr('Добавить сервер', 'Add server')}</h2>
-        <div className="tabs">
-          <div className={'tab' + (tab === 'link' ? ' active' : '')} onClick={() => setTab('link')}>
+      <div ref={dialog} tabIndex={-1} className={'modal'+(tab==='deploy'?' deployment-modal':'')} role="dialog" aria-modal="true" aria-labelledby="add-server-title" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-heading"><h2 id="add-server-title">{tr('Добавить сервер', 'Add server')}</h2><button type="button" className="btn ghost modal-close" aria-label={tr('Закрыть', 'Close')} onClick={onClose}>×</button></div>
+        <div className="tabs" role="group" aria-label={tr('Способ добавления сервера', 'How to add the server')}>
+          <button type="button" className={'tab' + (tab === 'link' ? ' active' : '')} aria-pressed={tab==='link'} onClick={() => setTab('link')}>
             {tr('Вставить ссылку', 'Paste a link')}
-          </div>
-          <div className={'tab' + (tab === 'manual' ? ' active' : '')} onClick={() => setTab('manual')}>
+          </button>
+          <button type="button" className={'tab' + (tab === 'manual' ? ' active' : '')} aria-pressed={tab==='manual'} onClick={() => setTab('manual')}>
             {tr('Вручную', 'Manual')}
-          </div>
-          <div className={'tab' + (tab === 'deploy' ? ' active' : '')} onClick={() => setTab('deploy')}>
+          </button>
+          <button type="button" className={'tab' + (tab === 'deploy' ? ' active' : '')} aria-pressed={tab==='deploy'} onClick={() => setTab('deploy')}>
             {tr('Новый VPS', 'New VPS')}
-          </div>
+          </button>
         </div>
 
         {tab === 'deploy' && <CreateServerWizard onCreated={onCreated} />}

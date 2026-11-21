@@ -1,6 +1,7 @@
 import {useState} from 'react'
 import {backend, ServerLogs, ServerRemoteStatus, ServerRestart, ServerStop, ServerUninstall, serversetup} from '../api'
 import {tr} from '../language'
+import InfoTip from './InfoTip'
 
 interface Props {
   server: backend.Server
@@ -28,11 +29,13 @@ export default function ServerManagement({server}: Props) {
 
   const refresh = () => run(async () => setStatus(await ServerRemoteStatus(server.id)))
   const restart = () => run(async () => {
+    if (!window.confirm(tr('Перезапустить сервер? Подключения других устройств могут прерваться.', 'Restart the server? Other devices may be disconnected.'))) return
     await ServerRestart(server.id)
     setStatus(await ServerRemoteStatus(server.id))
     setInfo(tr('Перезапущено на сервере.', 'Restarted on server.'))
   })
   const stop = () => run(async () => {
+    if (!window.confirm(tr('Остановить сервер для всех его клиентов?', 'Stop the server for all its clients?'))) return
     await ServerStop(server.id)
     setStatus(await ServerRemoteStatus(server.id))
     setInfo(tr('Остановлено.', 'Stopped.'))
@@ -53,7 +56,7 @@ export default function ServerManagement({server}: Props) {
 
   return (
     <div className="field-group">
-      <h3>{tr('Управление сервером (по SSH)', 'Server management (SSH)')}</h3>
+      <h3>{tr('Управление сервером (по SSH)', 'Server management (SSH)')} <InfoTip label={tr('О действиях на VPS', 'About VPS actions')}>{tr('Это действия на удалённом сервере, а не отключение одного профиля. Остановка и перезапуск могут прервать подключения других устройств.', 'These actions affect the remote server, not just one local profile. Stopping or restarting may interrupt other devices.')}</InfoTip></h3>
       {error && <div className="notice error">{error}</div>}
       {info && <div className="notice info">{info}</div>}
       <div className="checkbox-row">
@@ -83,16 +86,18 @@ export default function ServerManagement({server}: Props) {
         </pre>
       )}
       {server.wgClientConf && (
-        <div className="field" style={{marginTop: 12}}>
-          <label>{tr('Конфиг WireGuard/AmneziaWG для отдельного клиента', 'WireGuard/AmneziaWG configuration for an external client')}</label>
-          <textarea readOnly value={server.wgClientConf} onClick={(e) => (e.target as HTMLTextAreaElement).select()} />
-        </div>
+        <details className="sensitive-config">
+          <summary>{tr('Конфиг WireGuard/AmneziaWG для отдельного клиента', 'WireGuard/AmneziaWG configuration for an external client')}</summary>
+          <p className="settings-note">{tr('Содержит приватный ключ. Не публикуйте этот конфиг или снимок экрана.', 'Contains a private key. Do not publish this configuration or a screenshot of it.')}</p>
+          <div className="field"><textarea readOnly value={server.wgClientConf} onClick={(e) => (e.target as HTMLTextAreaElement).select()} /></div>
+        </details>
       )}
-      <div className="inline-actions" style={{marginTop: 12}}>
-        <button className="btn small danger" disabled={busy} onClick={uninstall}>
+      <details className="danger-zone">
+        <summary>{tr('Опасные действия на VPS', 'Destructive VPS actions')}</summary>
+        {server.ssh?.manager==='hackdiaz-docker' ? <p className="settings-note">{tr('Удаление общей установки из клиента отключено, чтобы не затронуть другие устройства.', 'Removing a shared installation from the client is disabled to protect other devices.')}</p> : <div className="inline-actions" style={{marginTop:12}}><button className="btn small danger" disabled={busy} onClick={uninstall}>
           {tr('Удалить free-turn-proxy с сервера', 'Remove free-turn-proxy from server')}
-        </button>
-      </div>
+        </button></div>}
+      </details>
     </div>
   )
 }

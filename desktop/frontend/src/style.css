@@ -12,10 +12,40 @@
   --warn: #e5b93a;
   --err: #f0554f;
   --radius: 12px;
+  --settings-control-height: 36px;
+  --scrollbar-thumb: #454957;
+  --scrollbar-thumb-hover: #687185;
 }
 
 * {
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background-color: var(--scrollbar-thumb-hover); }
+*::-webkit-scrollbar-corner { background: transparent; }
+*::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+@supports selector(::-webkit-scrollbar) {
+  /* Chromium's standard scrollbar properties otherwise override the thumb
+     pseudo-elements, including their explicit hover treatment. */
+  * { scrollbar-width: auto; scrollbar-color: auto; }
+}
+.detail-body, .settings-page, .modal, .log-lines, textarea { scrollbar-gutter: stable; }
+@media (forced-colors: active) {
+  * { scrollbar-color: auto; scrollbar-width: auto; }
+  *::-webkit-scrollbar { width: revert; height: revert; }
+  *::-webkit-scrollbar-track, *::-webkit-scrollbar-thumb, *::-webkit-scrollbar-corner { background: revert; border: revert; }
+  *::-webkit-scrollbar-thumb { border-radius: revert; }
+  *::-webkit-scrollbar-button { display: revert; width: revert; height: revert; }
 }
 
 html,
@@ -321,6 +351,7 @@ select optgroup {
   margin-bottom: 4px;
 }
 
+.field input:not([type]),
 .field input[type='text'],
 .field input[type='number'],
 .field input[type='password'],
@@ -340,6 +371,101 @@ select optgroup {
   font-family: 'Cascadia Code', 'Consolas', monospace;
   font-size: 12px;
 }
+
+.stream-control .stream-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.stream-label label { margin-bottom: 0; }
+.stream-label output {
+  margin-left: auto;
+  min-width: 30px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--accent-dim);
+  color: var(--text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.field input.stream-slider {
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.field input.stream-slider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 5px;
+}
+.stream-control small, .stream-summary {
+  color: var(--text-dim);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.stream-summary { margin: 2px 0 10px; }
+
+/* Form controls share one height; multiline editors, switches and (i) buttons
+   deliberately keep their own size. Connection-screen controls are unchanged. */
+.detail .btn, .modal .btn, .settings-page .btn,
+.detail .btn.small, .modal .btn.small, .settings-page .btn.small {
+  min-height: var(--settings-control-height);
+  height: var(--settings-control-height);
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: 12.5px;
+}
+:is(.detail, .modal, .settings-page) :is(input:not([type]), input[type='text'], input[type='password'], input[type='number'], select) {
+  height: var(--settings-control-height);
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: normal;
+}
+.field-label { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+.field .field-label label { margin-bottom: 0; }
+.field-label .info-tip { flex-shrink: 0; }
+.settings-section {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.profile-settings .settings-section h3 { font-size: 12px; }
+.profile-settings .field textarea { min-height: 64px; }
+.advanced-settings { border: 1px solid var(--border); border-radius: var(--radius); margin: 0 0 18px; }
+.advanced-settings > summary { padding: 13px 14px; cursor: pointer; color: var(--text); }
+.advanced-settings > summary strong { font-size: 12.5px; font-weight: 600; }
+.advanced-settings > summary > span { margin-left: 10px; color: var(--text-dim); font-size: 11.5px; }
+.advanced-settings[open] > summary { border-bottom: 1px solid var(--border); }
+.advanced-content { padding: 16px 14px 0; }
+.toggle-setting { display: flex; gap: 7px; align-items: center; margin-top: 10px; }
+.toggle-setting .checkbox-row { margin: 0; }
+.settings-attention { display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+.sensitive-config { margin: 14px 0; }
+.sensitive-config > summary { cursor: pointer; font-size: 12px; color: var(--text-dim); }
+.danger-zone { margin: 16px 0; }
+.danger-zone > summary { color: var(--err); cursor: pointer; font-size: 12px; }
+.cli-command { max-height: 220px; overflow: auto; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-input); color: var(--text-dim); white-space: pre-wrap; overflow-wrap: anywhere; }
+.advanced-content > .inline-actions:last-child { margin-bottom: 14px; }
+.compact-loader { display: inline-flex; width: 16px; height: 16px; flex-shrink: 0; }
+.compact-loader .connection-loader { position: static; inset: auto; width: 16px; height: 16px; opacity: 1; transition: none; }
+.detail-header .status-pill { flex-shrink: 0; }
+@media (max-width: 1000px) {
+  .detail-header h2 { flex: 1 0 calc(100% - 150px); }
+}
+.preference-row > .field-label { margin: 0; flex: 1; }
+.preference-row > .field-label label { font-size: 13px; font-weight: 600; color: var(--text); }
+.profile-settings .kcp-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); }
+.profile-log-panel { flex-shrink: 0; border-top: 1px solid var(--border); background: #0d0f13; }
+.profile-log-panel > summary { cursor: pointer; padding: 9px 14px; font-size: 12px; color: var(--text-dim); }
+.profile-log-panel > summary strong { font-weight: 500; }
+.profile-log-panel > summary span { margin-left: 12px; font-size: 11px; }
+.profile-log-panel .log-console { border-top: 1px solid var(--border); }
 
 .field input:focus,
 .field select:focus,
@@ -622,6 +748,7 @@ select optgroup {
   max-height: 85vh;
   overflow-y: auto;
   padding: 20px;
+  min-width: 0;
 }
 
 .modal h2 {
@@ -652,7 +779,38 @@ select optgroup {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 18px;
+  flex-wrap: wrap;
 }
+
+.modal :is(input, select, textarea) { max-width: 100%; min-width: 0; }
+.modal .field select { text-overflow: ellipsis; }
+.modal-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+.modal .modal-heading h2 { margin: 0; }
+.modal .modal-close { width: var(--settings-control-height); flex-shrink: 0; font-size: 20px; }
+.tabs .tab { font: inherit; background: none; border: 0; border-bottom: 2px solid transparent; min-height: var(--settings-control-height); cursor: pointer; }
+.tabs .tab.active { border-bottom-color: var(--accent); }
+.wizard-step { display: grid; gap: 14px; min-width: 0; }
+.wizard-step > .field-row, .wizard-step > .notice, .wizard-step > .advanced-settings { margin-bottom: 0; }
+.wizard-step .modal-actions { margin-top: 0; }
+.wizard-card { display: grid; gap: 14px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; }
+.container-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 7px; color: var(--text-dim); font-size: 11px; min-width: 0; }
+.container-meta code { overflow-wrap: anywhere; word-break: break-word; }
+.wizard-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px 0 0; border-top: 1px solid var(--border); }
+.wizard-actions .btn { flex-shrink: 0; }
+.wizard-actions-end { justify-content: flex-end; }
+.deployment-modal { display: flex; flex-direction: column; overflow: hidden; }
+.deployment-modal > .modal-heading, .deployment-modal > .tabs { flex-shrink: 0; }
+.deployment-modal > .wizard-step { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 2px; scrollbar-gutter: stable; scroll-padding-bottom: 74px; }
+.deployment-modal .wizard-actions { position: sticky; bottom: 0; z-index: 1; background: var(--bg-elevated); padding-bottom: 2px; }
+.wizard-manual .advanced-content { padding-bottom: 14px; }
+.endpoint-options { display: grid; gap: 10px; margin: 0; padding: 0; min-width: 0; border: 0; }
+.endpoint-options legend { margin-bottom: 8px; color: var(--text-dim); font-size: 12px; }
+.endpoint-option { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 9px; cursor: pointer; min-width: 0; }
+.endpoint-option:hover { border-color: var(--accent); }
+.endpoint-option input { margin: 2px 0 0; flex-shrink: 0; accent-color: var(--accent); }
+.endpoint-option > span { display: grid; gap: 5px; min-width: 0; }
+.endpoint-option strong { font-size: 12.5px; }
+.endpoint-option code { color: var(--text-dim); font-size: 12px; overflow-wrap: anywhere; word-break: break-word; }
 
 /* --- Application navigation --- */
 

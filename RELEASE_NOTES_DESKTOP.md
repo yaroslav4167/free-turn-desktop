@@ -1,47 +1,26 @@
-# FreeTurn Desktop v3.0.2
+# FreeTurn Desktop v3.0.3
 
-## Safer existing-container setup
+## Интерфейс и удобство
 
-- Matching link/SSH hosts now save immediately, without an extra choice.
-  Domain-name case/trailing dots and equivalent IP literals are recognized.
-- Review differing relay endpoints before saving a local profile. Stale
-  `PUBLIC_HOST` values in a VPS configuration no longer get selected silently.
-- Choose the address from the server link, the SSH host with the relay port,
-  or enter a custom endpoint. For a mismatch, saving is disabled until an
-  address is selected. No DNS lookups are used to guess equivalence.
-- Different SSH/public addresses can be intentional (NAT or bastion); the
-  client does not overwrite them or rewrite server configuration automatically.
-- SSH setup now explicitly accepts a domain and recommends DNS names for
-  servers whose IP can change. Existing saved profiles are not rewritten.
-- Imported keys, Client ID, AmneziaWG settings and DTLS pinning are preserved.
+- Новый логотип приложения, плоский знак в интерфейсе и монохромные значки трея для Windows, Linux и macOS.
+- Настройки профиля разделены на подключение и производительность. Расширенные параметры, маршрутизация, управление VPS и CLI доступны в сворачиваемых разделах; существующие параметры и профили сохранены.
+- Связанные ползунки «TURN-потоков (-n)» и «Потоков на аккаунт»: `-n` задаёт потоки на каждую ссылку, рядом показано суммарное число. Уменьшение `-n` при необходимости снижает второй параметр, увеличение не меняет его автоматически. Допустимы неполные группы; расширенные значения импортированных профилей не обрезаются при открытии.
+- Поля, списки и соседние кнопки приведены к единой высоте. Добавлены подсказки, тематические скроллбары и более компактные настройки приложения; сохранён системный высококонтрастный режим.
+- При включении VPN из настроек сразу отображаются подготовка и отмена, ещё до первого состояния от ядра. Повторное нажатие не запускает второй запрос; отмена во время сохранения не запускает подключение позже.
 
-For an already saved profile with an old IP, edit only its relay `peer` to
-the correct domain and port, save, and reconnect. This desktop update does not
-restart the VPS, change WireGuard keys, or regenerate users.
+## Мастер SSH и безопасность действий
 
-## Unified desktop release
+- Исправлена вёрстка выбора существующего контейнера: короткие пункты списка, перенос длинных метаданных и доступные кнопки в небольшом окне.
+- При несовпадении адресов ссылки и SSH предлагается явный выбор адреса или ручной ввод. При совпадении дополнительный шаг не нужен. Настройки VPS и ключи автоматически не переписываются.
+- Модальное окно удерживает клавиатурный фокус, возвращает его после закрытия и сбрасывает прокрутку при смене шага.
+- Локальное действие явно называется «Удалить профиль» и недоступно для подключённого профиля. Перезапуск и остановка VPS требуют подтверждения; удаление общей Docker-установки из интерфейса отключено.
+- Приватные конфигурации скрыты по умолчанию. CLI-команда сопровождается предупреждением и кнопкой копирования; запоздавший ответ не показывается после смены профиля или состояния сохранения.
+- Обновлены русская и английская локализации, README и демонстрационные снимки.
 
-One repository and release stream for Linux (amd64), Windows (amd64), and
-macOS (Apple Silicon and Intel): https://github.com/yaroslav4167/free-turn-desktop.
+## Совместимость и проверка
 
-- Shared UI and core, with native Linux VPN helper, Windows Wintun, and macOS
-  utun/launchd helper preserved.
-- Automatic updates select only the current platform/architecture and verify
-  the archive against the combined SHA-256 manifest.
-- Existing profiles and settings retain their platform-specific storage paths.
-- SSH setup detects supported hackdiaz Docker servers and issues a separate
-  desktop device profile without reinstalling or restarting the shared server.
-- New empty VPS deployments use the shared Android-compatible Docker layout.
-- TURN readiness, DTLS stream accounting, packet-buffer bounds and imported
-  AmneziaWG parameters are preserved by the shared core.
+Единый выпуск: Linux amd64, Windows amd64, macOS Apple Silicon и Intel. Сохранены нативные Linux helper, Windows Wintun, macOS utun/launchd helper, DTLS pinning, anti-replay, маршрутизация и независимая обработка captcha. Сетевая логика распределения потоков не меняется; добавлен регрессионный тест отдельных cache-групп для нескольких ссылок.
 
-Choose the archive matching your OS. macOS builds are ad-hoc signed, not
-Developer ID notarized. Releases require all four native build/test jobs to
-pass; this does not certify a live VPN connection on every user's network.
+Профили остаются в прежних каталогах. Клиенты v3.0.0–v3.0.2 обновляются напрямую из этого репозитория. Изменение параметров в форме не перенастраивает уже работающий VPN автоматически: сохраните профиль и переподключитесь.
 
-## Direct upgrade from the old repositories
-
-The old repositories distribute the verified v3.0.0 snapshots, which already
-point automatic updates here. Clients on v3.0.0/3.0.1 can install v3.0.2 directly
-from this repository. Profiles and preferences remain in their existing
-locations. Older v2.6.6/v1.1.4/v0.2.3 bridge downloads are not required.
+Публикация требует успешных четырёх нативных сборок, тестов и проверки SHA-256 архивов. Браузерные проверки интерфейса используют демонстрационные данные и не заменяют живую VPN-проверку в каждой ОС. macOS-сборки имеют ad-hoc подпись, без Developer ID notarization.
