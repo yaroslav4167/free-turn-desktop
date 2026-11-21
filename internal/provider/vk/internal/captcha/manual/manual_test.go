@@ -62,7 +62,7 @@ func TestCaptchaHooksPrecedeUpstreamScripts(t *testing.T) {
 		if !strings.Contains(got, `<div id="spa_root"></div>`) {
 			t.Fatal("upstream widget root changed")
 		}
-		if !strings.Contains(got, "background:#0e0f14!important") {
+		if !strings.Contains(got, "background: #0e0f14 !important") {
 			t.Fatal("captcha page must stay dark independently of app theme")
 		}
 	}

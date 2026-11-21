@@ -1,0 +1,17 @@
+html, body {
+    background: #0e0f14 !important;
+    color: #e1e1e1;
+    color-scheme: dark;
+}
+
+/* VK's IUI mobile modal pins itself to the bottom in a narrow native window.
+   Override only the outer dialog's alignment, not its challenge/sliding canvas
+   or entrance/exit transforms. Balanced margins work with its flex overlay. */
+[role='dialog'][class*='modalCard__'][class*='mobileCard__'] {
+    align-self: center !important;
+    margin-top: auto !important;
+    margin-bottom: auto !important;
+    max-height: calc(100vh - 24px) !important;
+    max-height: calc(100dvh - 24px) !important;
+    overflow-y: auto !important;
+}

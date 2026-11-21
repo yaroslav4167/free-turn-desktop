@@ -27,6 +27,11 @@ func TestNativeCaptchaWindow(t *testing.T) {
 	}
 	probe, stillHere := make(chan bool, 1), make(chan struct{}, 1)
 	mediaDenied := make(chan bool, 1)
+	layoutOK := make(chan bool, 1)
+	css, err := os.ReadFile(filepath.Join("..", "..", "internal", "provider", "vk", "internal", "captcha", "manual", "layout.css"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/probe", func(w http.ResponseWriter, r *http.Request) {
 		select {
@@ -49,9 +54,19 @@ func TestNativeCaptchaWindow(t *testing.T) {
 		}
 		w.WriteHeader(204)
 	})
+	mux.HandleFunc("/layout-probe", func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case layoutOK <- r.URL.Query().Get("ok") == "true":
+		default:
+		}
+		w.WriteHeader(204)
+	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = fmt.Fprint(w, `<!doctype html><html><body style="background:#0e0f14;color:white">Synthetic verification: no VK connection<script>
+		_, _ = fmt.Fprint(w, `<!doctype html><html><head><style>
+.synthetic-overlay{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:center}
+.modalCard__fixture{position:relative;width:320px;margin-left:auto;margin-right:auto;margin-top:auto;margin-bottom:24px;align-self:flex-end;height:200px;background:#1b1c24;color:white}
+</style><style>`+string(css)+`</style></head><body><div class="synthetic-overlay"><div role="dialog" class="modalCard__fixture mobileCard__fixture"><label><input id="synthetic-check" type="checkbox">Synthetic verification: no VK connection</label></div></div><script>
 async function rejectsCapture(method,constraints) {
   const devices=navigator.mediaDevices;
   if (!devices || typeof devices[method]!=='function') return true;
@@ -59,6 +74,10 @@ async function rejectsCapture(method,constraints) {
   catch(e) {return true;}
 }
 fetch('/probe?bridge='+String(!!(window.go||window.wails||window.runtime))).then(async()=>{
+  const dialog=document.querySelector('[role=dialog]'),rect=dialog.getBoundingClientRect();
+  const centered=Math.abs((rect.top+rect.bottom)/2-innerHeight/2)<2;
+  const checkbox=document.getElementById('synthetic-check');checkbox.click();
+  await fetch('/layout-probe?ok='+String(centered&&checkbox.checked));
   const camera=await rejectsCapture('getUserMedia',{video:true});
   const microphone=await rejectsCapture('getUserMedia',{audio:true});
   const screen=await rejectsCapture('getDisplayMedia',{video:true});
@@ -103,6 +122,17 @@ fetch('/probe?bridge='+String(!!(window.go||window.wails||window.runtime))).then
 		t.Fatalf("native view exited before rendering: %v; %s", err, stderr.String())
 	case <-ctx.Done():
 		t.Fatal("native view did not render synthetic page")
+	}
+	select {
+	case ok := <-layoutOK:
+		if !ok {
+			cancel()
+			t.Fatal("narrow-window dialog is not centered or its controls stopped working")
+		}
+	case err := <-finished:
+		t.Fatalf("native view closed during layout check: %v", err)
+	case <-ctx.Done():
+		t.Fatal("native layout probe did not complete")
 	}
 	select {
 	case denied := <-mediaDenied:

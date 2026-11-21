@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs'
 import vm from 'node:vm'
 
 const script = readFileSync(new URL('../../../internal/provider/vk/internal/captcha/manual/inject.js', import.meta.url), 'utf8')
+const layout = readFileSync(new URL('../../../internal/provider/vk/internal/captcha/manual/layout.css', import.meta.url), 'utf8')
 
 function setup() {
   const requests=[], events=new Map(), timers=[]
@@ -119,4 +120,15 @@ test('loaded widget is not permanently covered by diagnostics; script failures r
   assert.equal(body.children[0].hidden,false)
   assert.match(body.children[0].children[0].textContent,/VK script error/)
   assert.doesNotMatch(body.children[0].children[0].textContent,/private-demo/)
+})
+
+test('narrow-window captcha is centered without resizing or transforming challenge controls', () => {
+  assert.match(layout,/\[role='dialog'\]\[class\*='modalCard__'\]\[class\*='mobileCard__'\]/)
+  assert.match(layout,/align-self: center !important/)
+  assert.match(layout,/margin-top: auto !important/)
+  assert.match(layout,/margin-bottom: auto !important/)
+  assert.match(layout,/max-height: calc\(100vh - 24px\)/)
+  assert.match(layout,/max-height: calc\(100dvh - 24px\)/)
+  assert.match(layout,/overflow-y: auto/)
+  assert.doesNotMatch(layout,/\btransform\s*:|pointer-events\s*:|\binput\s*\{|\bcanvas\s*\{/)
 })

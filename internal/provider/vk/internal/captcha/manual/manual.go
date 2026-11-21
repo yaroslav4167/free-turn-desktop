@@ -38,11 +38,14 @@ const captchaListenPort = "8765"
 //go:embed inject.js
 var injectJS string
 
+//go:embed layout.css
+var captchaPageCSS string
+
 // injectScriptTag: конфиг отдельной строкой (json.Marshal экранирует, включая "<"),
 // сам inject.js статичный, без плейсхолдеров.
 func injectScriptTag(localOrigin, upstreamOrigin string) string {
 	cfg, _ := json.Marshal(map[string]string{"local": localOrigin, "upstream": upstreamOrigin})
-	return "\n<style id=\"ftp-captcha-theme\">html,body{background:#0e0f14!important;color:#e1e1e1;color-scheme:dark}</style>\n<script>window.__ftpCaptcha=" + string(cfg) + ";</script>\n<script>\n" + injectJS + "</script>\n"
+	return "\n<style id=\"ftp-captcha-theme\">" + captchaPageCSS + "</style>\n<script>window.__ftpCaptcha=" + string(cfg) + ";</script>\n<script>\n" + injectJS + "</script>\n"
 }
 
 type browserCommand struct {
