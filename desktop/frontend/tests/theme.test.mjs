@@ -88,3 +88,18 @@ test('text, actions and connection states retain readable contrast in both palet
     }
   }
 })
+
+test('settings theme picker uses labeled native radios and visible selection and keyboard focus', () => {
+  const picker = readFileSync(new URL('../src/components/ThemePicker.tsx', import.meta.url), 'utf8')
+  assert.match(picker, /role="radiogroup"/)
+  assert.match(picker, /type="radio" name="interface-theme"/)
+  assert.match(picker, /checked=\{value===choice.value\}/)
+  assert.match(picker, /disabled=\{disabled\}/)
+  for (const theme of ['system','light','dark']) assert.ok(picker.includes(`value:'${theme}'`))
+  assert.match(picker, /<span>\{choice.label\}<\/span>/)
+  assert.match(picker, /choice.value==='system'&&<path/)
+  const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8')
+  assert.match(css, /\.theme-option input:checked \+ \.theme-choice[^}]*border-color: var\(--accent\)/)
+  assert.match(css, /\.theme-option input:focus-visible \+ \.theme-choice[^}]*outline: 2px solid/)
+  assert.match(css, /\.preference-row input\[type='checkbox'\]/)
+})

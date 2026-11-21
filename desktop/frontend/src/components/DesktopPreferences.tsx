@@ -5,7 +5,8 @@ import UpdatePreferences from './UpdatePreferences'
 import {backend} from '../../wailsjs/go/models'
 import {availableLanguages, configureLanguage, tr} from '../language'
 import FieldLabel from './FieldLabel'
-import {configureTheme, normalizeTheme, subscribeTheme, themeSnapshot} from '../theme'
+import {configureTheme, subscribeTheme, themeSnapshot} from '../theme'
+import ThemePicker from './ThemePicker'
 
 function PreferenceSwitch({id, title, hint, checked, disabled, onChange}: {
   id:string; title:string; hint:string; checked:boolean; disabled:boolean; onChange:(value:boolean)=>void
@@ -54,16 +55,11 @@ export default function DesktopPreferences({version, active, servers}: {version:
             {availableLanguages().map(language=><option key={language.code} value={language.code} lang={language.code}>{language.name}</option>)}
           </select>
         </div>
-        <div className="preference-row language-row">
-          <FieldLabel htmlFor="interface-theme" label={tr('Тема оформления', 'Appearance')} hint={tr('Применяется сразу. «Как в системе» автоматически следует светлой или тёмной теме ОС.', 'Applies immediately. System default automatically follows the light or dark OS theme.')} />
-          <select id="interface-theme" value={theme} disabled={busy} onChange={e=>{
-            const value=normalizeTheme(e.target.value)
+        <div className="preference-row theme-row">
+          <FieldLabel htmlFor="interface-theme-system" label={tr('Тема оформления', 'Appearance')} hint={tr('Применяется сразу. «Как в системе» автоматически следует светлой или тёмной теме ОС.', 'Applies immediately. System default automatically follows the light or dark OS theme.')} />
+          <ThemePicker value={theme} disabled={busy} onChange={value=>{
             run(async()=>{await desktop().SetTheme(value);configureTheme(value)})
-          }}>
-            <option value="system">{tr('Как в системе', 'System default')}</option>
-            <option value="light">{tr('Светлая', 'Light')}</option>
-            <option value="dark">{tr('Тёмная', 'Dark')}</option>
-          </select>
+          }} />
         </div>
         <PreferenceSwitch id="start-at-login" title={tr('Запускать вместе с системой', 'Start at login')}
           hint={tr('При входе в систему. Автоподключение настраивается отдельно ниже.', 'When signing in. Automatic connection is configured separately below.')}

@@ -1470,7 +1470,7 @@ button:disabled {
 .preference-row p {
   margin: 7px 0 0;
 }
-.preference-row input {
+.preference-row input[type='checkbox'] {
   appearance: none;
   -webkit-appearance: none;
   position: relative;
@@ -1482,7 +1482,7 @@ button:disabled {
   background: var(--switch-track);
   cursor: pointer;
 }
-.preference-row input::after {
+.preference-row input[type='checkbox']::after {
   content: '';
   position: absolute;
   width: 14px;
@@ -1492,15 +1492,15 @@ button:disabled {
   left: 3px;
   top: 3px;
 }
-.preference-row input:checked {
+.preference-row input[type='checkbox']:checked {
   background: var(--switch-on);
   border-color: var(--accent);
 }
-.preference-row input:checked::after {
+.preference-row input[type='checkbox']:checked::after {
   transform: translateX(16px);
   background: var(--switch-on-knob);
 }
-.preference-row input:disabled {
+.preference-row input[type='checkbox']:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
@@ -1627,6 +1627,19 @@ button:disabled {
   border-radius: 7px;
   background: var(--bg-input);
   color: var(--text);
+}
+.theme-row { flex-wrap: wrap; }
+.theme-options { display: flex; flex-wrap: wrap; gap: 4px; }
+.theme-option { position: relative; cursor: pointer; }
+.theme-choice { display: flex; align-items: center; flex-direction: column; gap: 4px; min-width: 72px; min-height: 44px; padding: 5px 8px; border: 1px solid transparent; border-radius: 9px; color: var(--text-dim); font-size: 11px; }
+.theme-swatch { display: block; flex-shrink: 0; }
+.theme-option input:checked + .theme-choice { color: var(--text); border-color: var(--accent); background: var(--accent-dim); }
+.theme-option:hover .theme-choice { border-color: var(--accent); }
+.theme-option input:focus-visible + .theme-choice { outline: 2px solid var(--accent); outline-offset: 2px; }
+.theme-option input:disabled + .theme-choice { opacity: 0.5; cursor: wait; }
+@media (forced-colors: active) {
+  .theme-option input:checked + .theme-choice { border-color: Highlight; }
+  .theme-option input:focus-visible + .theme-choice { outline-color: Highlight; }
 }
 .traffic-card .connection-ping { display: flex; align-items: center; gap: 4px; }
 .connection-ping .info-tip-button { font-size: 11px; padding: 0 2px; }
