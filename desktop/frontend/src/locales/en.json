@@ -2,6 +2,8 @@
   "code": "en",
   "name": "English",
   "messages": {
+    "DNS-режим реле и подготовки VPN. При подготовке в Auto используется системный DNS или заданные резолверы, при сбое — DoH. В plain и doh резервный режим не включается. Не заменяет DNS из конфигурации WireGuard.": "DNS mode for the relay and VPN preparation. During preparation, Auto uses system DNS or custom resolvers, with DoH on failure. Plain and doh do not switch modes. Does not replace DNS in the WireGuard configuration.",
+    "Домены разрешаются при подключении согласно DNS-режиму профиля. В Auto сначала используется системный DNS или заданные резолверы; при сбое — DoH. Изменение IP требует переподключения. Указывайте точные имена, без https://, путей и *. Поддомены добавляются отдельно. Сайты на одном IP могут попадать под одно правило; собственный DNS/DoH браузера может дать другие IP. Фильтруются только диапазоны AllowedIPs конфигурации WireGuard: например, при наличии только IPv4 правила не охватывают IPv6. DNS-серверы профиля остаются служебными VPN-маршрутами даже при чёрном исключении.": "Domains are resolved when connecting according to the profile DNS mode. Auto tries system DNS or custom resolvers first, then DoH on failure. Reconnect after IP changes. Use exact names without https://, paths or *. Add subdomains separately. Sites sharing an IP may match the same rule; browser DNS/DoH may resolve different IPs. Rules only cover WireGuard AllowedIPs ranges: an IPv4-only configuration does not cover IPv6. Profile DNS servers keep their service VPN routes even when blacklisted.",
     "Скопировано": "Copied",
     "Копировать": "Copy",
     "Диагностика и CLI": "Diagnostics and CLI",

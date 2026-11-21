@@ -345,12 +345,14 @@ const (
 
 var udpDNSServersPtr atomic.Pointer[[]string]
 
+var defaultUDPDNSServers = []string{
+	"77.88.8.8:53", "77.88.8.1:53",
+	"8.8.8.8:53", "8.8.4.4:53",
+	"1.1.1.1:53", "1.0.0.1:53",
+}
+
 func init() {
-	def := []string{
-		"77.88.8.8:53", "77.88.8.1:53",
-		"8.8.8.8:53", "8.8.4.4:53",
-		"1.1.1.1:53", "1.0.0.1:53",
-	}
+	def := append([]string(nil), defaultUDPDNSServers...)
 	udpDNSServersPtr.Store(&def)
 }
 
@@ -358,9 +360,13 @@ func udpDNSServers() []string { return *udpDNSServersPtr.Load() }
 
 // SetUDPDNSServers атомарно обновляет список UDP/53 серверов (IP или IP:Port).
 func SetUDPDNSServers(servers []string) {
-	if len(servers) == 0 {
-		return
+	normalized := normalizeUDPDNSServers(servers)
+	if len(normalized) != 0 {
+		udpDNSServersPtr.Store(&normalized)
 	}
+}
+
+func normalizeUDPDNSServers(servers []string) []string {
 	normalized := make([]string, 0, len(servers))
 	for _, s := range servers {
 		s = strings.TrimSpace(s)
@@ -372,10 +378,19 @@ func SetUDPDNSServers(servers []string) {
 		}
 		normalized = append(normalized, s)
 	}
-	if len(normalized) == 0 {
-		return
+	return normalized
+}
+
+// NewPlainResolver takes a private server snapshot, independent of the last
+// running session's global DNS settings. An empty list uses built-in defaults.
+func NewPlainResolver(servers []string) *net.Resolver {
+	servers = normalizeUDPDNSServers(servers)
+	if len(servers) == 0 {
+		servers = append([]string(nil), defaultUDPDNSServers...)
 	}
-	udpDNSServersPtr.Store(&normalized)
+	return newAppDialer(func(ctx context.Context, network, addr string) (net.Conn, error) {
+		return udpDNSDialServers(ctx, servers)
+	}).Resolver
 }
 
 type dialFunc = func(context.Context, string, string) (net.Conn, error)
@@ -403,11 +418,15 @@ func newAppDialer(dial dialFunc) net.Dialer {
 }
 
 func udpDNSDial(ctx context.Context, _ string, _ string) (net.Conn, error) {
+	return udpDNSDialServers(ctx, udpDNSServers())
+}
+
+func udpDNSDialServers(ctx context.Context, servers []string) (net.Conn, error) {
 	var (
 		d       = net.Dialer{Control: netctl.Apply}
 		lastErr error
 	)
-	for _, s := range udpDNSServers() {
+	for _, s := range servers {
 		conn, err := d.DialContext(ctx, "udp", s)
 		if err == nil {
 			return conn, nil

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"runtime"
 	"sync"
 	"time"
@@ -113,7 +112,8 @@ func (e *Engine) Connect(srv Server) error {
 	var routeOverride string
 	var exclusions []string
 	if vpn {
-		exclusions, err = resolveExclusions(ctx, srv, net.DefaultResolver)
+		resolver := newPreflightResolver(srv)
+		exclusions, err = resolveExclusions(ctx, srv, resolver)
 		if err != nil {
 			return fmt.Errorf("VPN endpoints: %w", err)
 		}
@@ -122,7 +122,7 @@ func (e *Engine) Connect(srv Server) error {
 		if parseErr != nil {
 			return parseErr
 		}
-		routeOverride, err = routing.Build(ctx, params.AllowedIPs, params.DNS, srv.RoutingLists, nil, exclusions...)
+		routeOverride, err = routing.Build(ctx, params.AllowedIPs, params.DNS, srv.RoutingLists, resolver, exclusions...)
 		if err != nil {
 			return fmt.Errorf("списки маршрутизации VPN: %w", err)
 		}

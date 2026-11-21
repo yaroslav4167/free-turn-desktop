@@ -118,7 +118,7 @@ export default function ServerForm({value: s, onChange}: Props) {
           <h3>DNS</h3>
           <div className="field-row">
             <div className="field">
-              <FieldLabel htmlFor={id('dns-mode')} label={tr('Резолвер клиента', 'Client resolver')} hint={tr('Способ разрешения имён самим реле: auto, обычный DNS или DNS-over-HTTPS. Не заменяет DNS из конфигурации WireGuard.', 'How the relay resolves names: automatic, plain DNS or DNS-over-HTTPS. It does not replace DNS in the WireGuard configuration.')} />
+              <FieldLabel htmlFor={id('dns-mode')} label={tr('Резолвер клиента', 'Client resolver')} hint={tr('DNS-режим реле и подготовки VPN. При подготовке в Auto используется системный DNS или заданные резолверы, при сбое — DoH. В plain и doh резервный режим не включается. Не заменяет DNS из конфигурации WireGuard.', 'DNS mode for the relay and VPN preparation. During preparation, Auto uses system DNS or custom resolvers, with DoH on failure. Plain and doh do not switch modes. Does not replace DNS in the WireGuard configuration.')} />
               <select id={id('dns-mode')} value={s.dnsMode} onChange={e => patch({dnsMode:e.target.value})}>{DNS_MODES.map(m => <option key={m} value={m}>{m}</option>)}</select>
             </div>
             <div className="field" style={{flex:2}}>

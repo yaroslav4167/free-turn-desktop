@@ -10,7 +10,8 @@ test('VPN lists expose individual modes, enable switches and newline-preserving 
   assert.match(ui, /value="whitelist"/)
   assert.match(ui, /checked=\{list\.enabled\}/)
   assert.match(ui, /entries: e\.target\.value\.split\('\\n'\)/)
-  assert.match(ui, /DNS при подключении/)
+  assert.match(ui, /при подключении согласно DNS-режиму профиля/)
+  assert.match(ui, /В Auto сначала используется системный DNS или заданные резолверы; при сбое — DoH/)
   assert.match(ui, /не защита от утечек/)
 })
 
@@ -19,7 +20,7 @@ test('routing explanations are shown only in hover popups', () => {
   const tips = [...ui.matchAll(/<InfoTip\b[\s\S]*?<\/InfoTip>/g)].map(match => match[0])
   assert.equal(tips.length, 2)
   assert.match(tips[0], /Белый список:/)
-  assert.match(tips[1], /Домены разрешаются через системный DNS/)
+  assert.match(tips[1], /Домены разрешаются при подключении согласно DNS-режиму профиля/)
   assert.doesNotMatch(ui, /className="notice info"/)
 })
 
