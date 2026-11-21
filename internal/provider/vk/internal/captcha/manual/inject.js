@@ -5,14 +5,18 @@
     const PROXY = '/generic_proxy?proxy_url=';
     const RESULT = '/local-captcha-result';
     const CHECK = 'captchaNotRobot.check';
+    let finished = false;
+    let pending;
+    let loadFailure = '';
 
     function rewriteUrl(url) {
         if (!url || typeof url !== 'string') return url;
-        if (url.startsWith(LOCAL)) return url;
-        if (url.startsWith(UPSTREAM)) return LOCAL + url.slice(UPSTREAM.length);
-        if (url.startsWith('//')) return PROXY + encodeURIComponent(location.protocol + url);
-        if (url.startsWith('http://') || url.startsWith('https://')) return PROXY + encodeURIComponent(url);
-        return url;
+        if (!/^(?:https?:)?\/\//i.test(url)) return url;
+        let parsed;
+        try { parsed = new URL(url, UPSTREAM); } catch { return url; }
+        if (parsed.origin === new URL(LOCAL).origin) return url;
+        if (parsed.origin === new URL(UPSTREAM).origin) return LOCAL + parsed.pathname + parsed.search + parsed.hash;
+        return PROXY + encodeURIComponent(parsed.href);
     }
 
     function rewriteAttr(el, attr) {
@@ -25,8 +29,28 @@
     function rewriteTree(root) {
         if (!root.querySelectorAll) return;
         for (const attr of ['href', 'src', 'action']) {
+            if (root.hasAttribute?.(attr)) rewriteAttr(root, attr);
             root.querySelectorAll(`[${attr}]`).forEach((el) => rewriteAttr(el, attr));
         }
+    }
+
+    // MutationObserver runs after insertion, too late to stop a script/image
+    // request. Intercept resource URL assignment before the browser starts it.
+    const setAttribute = Element.prototype.setAttribute;
+    Element.prototype.setAttribute = function (name, value) {
+        if (['src', 'href', 'action'].includes(String(name).toLowerCase())) value = rewriteUrl(String(value));
+        return setAttribute.call(this, name, value);
+    };
+    for (const [constructor, property] of [
+        [HTMLScriptElement, 'src'], [HTMLLinkElement, 'href'],
+        [HTMLImageElement, 'src'], [HTMLIFrameElement, 'src'],
+    ]) {
+        const descriptor = Object.getOwnPropertyDescriptor(constructor.prototype, property);
+        if (!descriptor?.set || !descriptor.configurable) continue;
+        Object.defineProperty(constructor.prototype, property, {
+            ...descriptor,
+            set(value) { descriptor.set.call(this, rewriteUrl(String(value))); },
+        });
     }
 
     const extractToken = (data) => data?.response?.success_token;
@@ -60,14 +84,62 @@
     }
 
     function showPending() {
-        document.body.style.background = '#000';
+        if (finished || pending) return;
         const banner = document.createElement('div');
-        banner.textContent = 'free turn proxy - captcha';
-        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;padding:12px;text-align:center;font:13.5px ui-monospace,monospace;color:#e1e1e1;background:#000';
+        banner.id = 'ftp-captcha-status';
+        banner.style.cssText = 'position:fixed;bottom:12px;left:12px;z-index:99999;max-width:min(360px,calc(100vw - 48px));padding:10px 12px;border:1px solid #535969;border-radius:8px;font:13px/1.5 system-ui,sans-serif;color:#e1e1e1;background:#1b1c24';
+        const text = document.createElement('div');
+        text.setAttribute('role', 'status');
+        text.textContent = 'FreeTurn · Загрузка проверки VK / Loading VK verification…';
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.textContent = 'Обновить страницу / Reload';
+        retry.style.cssText = 'margin-top:8px;padding:6px 10px;border:1px solid #9299ab;border-radius:5px;background:#303442;color:#fff;cursor:pointer;font:inherit';
+        retry.hidden = true;
+        retry.addEventListener('click', () => location.reload());
+        banner.append(text, retry);
+        pending = {banner, text, retry};
         document.body.append(banner);
+        if (loadFailure) showLoadFailure(loadFailure);
+        setTimeout(() => {
+            if (finished || loadFailure) return;
+            const root = document.getElementById('spa_root');
+            if (root && !root.childElementCount) showLoadFailure('Виджет VK не появился / VK widget did not appear.');
+            else if (root?.childElementCount) banner.hidden = true;
+            else {
+                text.textContent = 'FreeTurn · Если проверка не появилась, обновите страницу / If verification is missing, reload the page.';
+                retry.hidden = false;
+            }
+        }, 12000);
     }
 
+    function showLoadFailure(message) {
+        if (finished) return;
+        loadFailure = message;
+        if (!pending) return;
+        pending.banner.hidden = false;
+        pending.text.textContent = 'FreeTurn · ' + message + ' Обновите страницу; если ошибка повторится, проверьте журнал приложения / Reload; if this persists, check the app log.';
+        pending.retry.hidden = false;
+    }
+
+    window.addEventListener('error', event => {
+        const element = event.target;
+        const resource = element?.tagName === 'SCRIPT' || (element?.tagName === 'LINK' && element.rel === 'stylesheet') ? element.src || element.href : event.filename;
+        if (!resource) return;
+        try {
+            const url = new URL(resource, location.href);
+            const proxied = url.pathname === '/generic_proxy' ? url.searchParams.get('proxy_url') : null;
+            const original = proxied ? new URL(proxied) : url.origin === new URL(LOCAL).origin ? new URL(url.pathname, UPSTREAM) : url;
+            // Optional advertising/telemetry failures must not look like a
+            // failed captcha. Never display URL queries containing challenge IDs.
+            if (!/(^|\.)vk\.(ru|com)$/i.test(original.hostname)) return;
+            if (/^ads\./i.test(original.hostname)) return;
+            showLoadFailure((event.filename ? 'Ошибка скрипта VK / VK script error: ' : 'Не загрузился ресурс VK / VK resource failed to load: ') + original.hostname + '.');
+        } catch {}
+    }, true);
+
     function showDone() {
+        finished = true;
         document.body.style.background = '#000';
         document.body.innerHTML =
             '<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-family:ui-monospace,monospace;text-align:center">' +
@@ -97,8 +169,12 @@
 
     const origFetch = window.fetch;
     window.fetch = function (...args) {
-        const urlStr = typeof args[0] === 'object' ? args[0]?.url : args[0];
-        if (typeof args[0] === 'string') args[0] = rewriteUrl(args[0]);
+        const input = args[0];
+        const urlStr = input instanceof Request ? input.url : input instanceof URL ? input.href : input;
+        if (typeof urlStr === 'string') {
+            const rewritten = rewriteUrl(urlStr);
+            if (rewritten !== urlStr) args[0] = input instanceof Request ? new Request(new URL(rewritten, location.href), input) : rewritten;
+        }
 
         const promise = origFetch.apply(this, args);
         if (typeof urlStr === 'string' && urlStr.includes(CHECK)) {

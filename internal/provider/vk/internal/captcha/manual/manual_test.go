@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
@@ -34,6 +35,30 @@ func TestRunCaptchaServerPresentsAfterListen(t *testing.T) {
 	}
 	if got != "token" {
 		t.Fatalf("token = %q, want token", got)
+	}
+}
+
+func TestCaptchaHooksPrecedeUpstreamScripts(t *testing.T) {
+	target, _ := url.Parse("https://id.vk.ru/captcha")
+	for _, head := range []string{"<head>", `<HEAD data-test="1">`, "<head lang='ru'>"} {
+		input := "<html>" + head + `<script src="//st.vk.ru/widget.js"></script></head><body><div id="spa_root"></div></body></html>`
+		got := rewriteCaptchaHTML(input, target)
+		injected := strings.Index(got, "window.__ftpCaptcha=")
+		upstream := strings.Index(got, `<script src="/generic_proxy?proxy_url=https%3A%2F%2Fst.vk.ru%2Fwidget.js"`)
+		if injected < 0 || upstream < 0 || injected > upstream {
+			t.Fatalf("hooks must be installed before upstream scripts for %s", head)
+		}
+		if !strings.Contains(got, `<div id="spa_root"></div>`) {
+			t.Fatal("upstream widget root changed")
+		}
+	}
+}
+
+func TestProxyErrorCauseDoesNotExposeChallengeQuery(t *testing.T) {
+	cause := context.DeadlineExceeded
+	err := &url.Error{Op: "Get", URL: "https://id.vk.ru/captcha?token=private-demo", Err: cause}
+	if got := proxyErrorCause(err); got != cause || strings.Contains(got.Error(), "private-demo") {
+		t.Fatalf("unsafe error: %v", got)
 	}
 }
 

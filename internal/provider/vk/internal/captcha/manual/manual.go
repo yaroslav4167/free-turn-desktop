@@ -232,6 +232,7 @@ var htmlURLAttrDoubleRe = regexp.MustCompile(`(?i)((?:src|href|action)\s*=\s*)"(
 var htmlURLAttrSingleRe = regexp.MustCompile(`(?i)((?:src|href|action)\s*=\s*)'((?:https?:)?//[^']+)'`)
 var htmlScriptContentRe = regexp.MustCompile(`(?is)(<script[^>]*>)(.*?)(</script>)`)
 var htmlStyleContentRe = regexp.MustCompile(`(?is)(<style[^>]*>)(.*?)(</style>)`)
+var htmlHeadOpenRe = regexp.MustCompile(`(?i)<head(?:\s[^>]*)?>`)
 
 // rewriteHTMLAttrsServerSide переписывает абсолютные и protocol-relative URL
 // в src/href/action HTML на стороне сервера. URL, совпадающие с upstream origin,
@@ -318,16 +319,16 @@ func rewriteCaptchaHTML(html string, targetURL *neturl.URL) string {
 
 	// Шаг 3: инжектируем клиентский скрипт как можно раньше - после <head>,
 	// чтобы XHR/fetch-перехваты были активны до любого inline <script> в <head>.
-	switch {
-	case strings.Contains(html, "<head>"):
-		return strings.Replace(html, "<head>", "<head>"+script, 1)
-	case strings.Contains(html, "</head>"):
-		return strings.Replace(html, "</head>", script+"</head>", 1)
-	case strings.Contains(html, "</body>"):
-		return strings.Replace(html, "</body>", script+"</body>", 1)
-	default:
-		return html + script
+	if head := htmlHeadOpenRe.FindStringIndex(html); head != nil {
+		return html[:head[1]] + script + html[head[1]:]
 	}
+	lower := strings.ToLower(html)
+	for _, closing := range []string{"</head>", "</body>"} {
+		if index := strings.Index(lower, closing); index >= 0 {
+			return html[:index] + script + html[index:]
+		}
+	}
+	return html + script
 }
 
 func startCaptchaServer(srv *http.Server, logPrefix string) error {
@@ -412,6 +413,19 @@ type loggingTransport struct {
 	started time.Time
 }
 
+func proxyErrorCause(err error) error {
+	var urlErr *neturl.Error
+	if errors.As(err, &urlErr) {
+		return urlErr.Err // Do not expose a challenge URL/query in normal logs.
+	}
+	return err
+}
+
+func captchaProxyError(w http.ResponseWriter, r *http.Request, err error) {
+	Log.Errorf("[Captcha Proxy] %s %s: %v", r.Method, captcha.SafeURL(r.URL.String()), proxyErrorCause(err))
+	http.Error(w, "Captcha resource unavailable. Reload the page; see the application log for details.", http.StatusBadGateway)
+}
+
 func (t *loggingTransport) elapsed() string {
 	return "+" + time.Since(t.started).Truncate(time.Millisecond).String()
 }
@@ -456,9 +470,12 @@ func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	// Весь трафик виджета, а не только check/componentDone: иначе не видно, зовёт
 	// ли живой браузер то, чего не зовём мы, и с какими паузами.
 	if err != nil {
-		Log.Debugf("[Captcha Proxy] http %s %s failed t=%s after=%s %s err=%v",
-			req.Method, captcha.SafeURL(req.URL.String()), t.elapsed(), time.Since(start).Truncate(time.Millisecond), navSummary(req), err)
+		Log.Warnf("[Captcha Proxy] http %s %s failed t=%s after=%s %s err=%v",
+			req.Method, captcha.SafeURL(req.URL.String()), t.elapsed(), time.Since(start).Truncate(time.Millisecond), navSummary(req), proxyErrorCause(err))
 		return nil, err
+	}
+	if resp.StatusCode >= http.StatusBadRequest {
+		Log.Warnf("[Captcha Proxy] http %s %s status=%d", req.Method, captcha.SafeURL(req.URL.String()), resp.StatusCode)
 	}
 	Log.Debugf("[Captcha Proxy] http %s %s status=%d t=%s after=%s %s",
 		req.Method, captcha.SafeURL(req.URL.String()), resp.StatusCode, t.elapsed(), time.Since(start).Truncate(time.Millisecond), navSummary(req))
@@ -508,10 +525,7 @@ func solveViaProxy(ctx context.Context, redirectURI string, dialer net.Dialer, p
 		Rewrite: func(req *httputil.ProxyRequest) {
 			rewriteProxyRequest(req.Out, targetURL)
 		},
-		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-			Log.Errorf("[Captcha Proxy] %s %s: %v", r.Method, r.URL.String(), err)
-			http.Error(w, "ошибка прокси капчи, детали в консоли клиента", http.StatusBadGateway)
-		},
+		ErrorHandler: captchaProxyError,
 		ModifyResponse: func(res *http.Response) error {
 			rewriteProxyCookies(res.Header)
 
@@ -565,7 +579,8 @@ func solveViaProxy(ctx context.Context, redirectURI string, dialer net.Dialer, p
 				notifyKey(keyCh, extractSuccessToken(bodyBytes))
 			}
 
-			if strings.Contains(contentType, "text/html") {
+			if strings.Contains(contentType, "text/html") || strings.Contains(contentType, "application/xhtml+xml") {
+				res.Header.Set("Cache-Control", "no-store")
 				for _, headerName := range []string{
 					"Content-Security-Policy",
 					"Content-Security-Policy-Report-Only",
@@ -621,7 +636,8 @@ func solveViaProxy(ctx context.Context, redirectURI string, dialer net.Dialer, p
 			return
 		}
 		genericReverse := &httputil.ReverseProxy{
-			Transport: transport,
+			Transport:    transport,
+			ErrorHandler: captchaProxyError,
 			Rewrite: func(req *httputil.ProxyRequest) {
 				req.Out.URL.Path = targetParsed.Path
 				req.Out.URL.RawQuery = targetParsed.RawQuery
