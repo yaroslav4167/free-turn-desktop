@@ -37,14 +37,14 @@ test('manual captcha rewrites dynamic resource setters before a request and reta
   const {context,requests}=setup()
   const script=new context.HTMLScriptElement()
   script.src='//st.vk.ru/widget.js'
-  assert.equal(requests[0],'/generic_proxy?proxy_url='+encodeURIComponent('https://st.vk.ru/widget.js'))
+  assert.equal(requests[0],'/captcha-resource/https/st.vk.ru/widget.js')
   const element=new context.Element('SCRIPT')
   element.setAttribute('src','https://st.vk.com/widget.js')
-  assert.equal(element.getAttribute('src'),'/generic_proxy?proxy_url='+encodeURIComponent('https://st.vk.com/widget.js'))
+  assert.equal(element.getAttribute('src'),'/captcha-resource/https/st.vk.com/widget.js')
   script.src='https://id.vk.ru/asset.js'
   assert.equal(requests[1],'http://localhost:8765/asset.js')
   script.src='https://id.vk.ru.evil.test/asset.js'
-  assert.equal(requests[2],'/generic_proxy?proxy_url='+encodeURIComponent('https://id.vk.ru.evil.test/asset.js'))
+  assert.equal(requests[2],'/captcha-resource/https/id.vk.ru.evil.test/asset.js')
 })
 
 test('manual captcha fetch accepts Request and URL objects without losing method, headers or body', async () => {
@@ -53,17 +53,19 @@ test('manual captcha fetch accepts Request and URL objects without losing method
   await context.window.fetch(input)
   const forwarded=calls[0][0]
   assert.ok(forwarded instanceof Request)
-  assert.equal(forwarded.url,new URL('/generic_proxy?proxy_url='+encodeURIComponent(input.url),'http://localhost:8765').href)
+  assert.equal(forwarded.url,'http://localhost:8765/captcha-resource/https/api.vk.ru/test')
   assert.equal(forwarded.method,'POST')
   assert.equal(forwarded.headers.get('X-Test'),'kept')
   assert.equal(await forwarded.text(),'synthetic=data')
   await context.window.fetch(new URL('https://st.vk.ru/data'))
-  assert.equal(calls[1][0],'/generic_proxy?proxy_url='+encodeURIComponent('https://st.vk.ru/data'))
+  assert.equal(calls[1][0],'/captcha-resource/https/st.vk.ru/data')
 })
 
-test('manual captcha does not black out the VK page and explains an empty widget with a reload action', () => {
-  const {body,timers}=setup()
-  assert.equal(body.style.background,undefined)
+test('manual captcha keeps a dark background and explains an empty widget with a reload action', () => {
+  const {body,timers,context}=setup()
+  assert.equal(body.style.background,'#0e0f14')
+  assert.equal(body.style.color,'#e1e1e1')
+  assert.equal(context.document.documentElement.style.colorScheme,'dark')
   const banner=body.children[0], [text,retry]=banner.children
   assert.match(text.textContent,/Loading VK verification/)
   assert.equal(retry.hidden,true)
@@ -71,6 +73,26 @@ test('manual captcha does not black out the VK page and explains an empty widget
   assert.match(text.textContent,/VK widget did not appear/)
   assert.equal(retry.hidden,false)
   assert.equal(typeof retry.click,'function')
+})
+
+test('resource URLs retain webpack publicPath and nested CSS/font/module directories', () => {
+  const {context,requests}=setup()
+  const script=new context.HTMLScriptElement()
+  script.src='https://st.vk.ru/vkid/vkid-bff/dist/projects/notRobotCaptcha-web/entrypoints/entry.demo.js'
+  const localScript=new URL(requests[0],'http://localhost:8765')
+  const publicPath=new URL('../',localScript)
+  assert.equal(new URL('chunks/js/iui_subapp.demo.js?retry-attempt=1',publicPath).href,
+    'http://localhost:8765/captcha-resource/https/st.vk.ru/vkid/vkid-bff/dist/projects/notRobotCaptcha-web/chunks/js/iui_subapp.demo.js?retry-attempt=1')
+  const css=new URL('chunks/css/iui_subapp.demo.css',publicPath)
+  assert.equal(new URL('../fonts/demo.woff2',css).pathname,
+    '/captcha-resource/https/st.vk.ru/vkid/vkid-bff/dist/projects/notRobotCaptcha-web/chunks/fonts/demo.woff2')
+})
+
+test('namespaced resource errors show their upstream host without exposing query values', () => {
+  const {events,body}=setup()
+  events.get('error')({target:{tagName:'SCRIPT',src:'http://localhost:8765/captcha-resource/https/st.vk.ru/chunks/js/demo.js?token=PRIVATE_DEMO'}})
+  assert.match(body.children[0].children[0].textContent,/st.vk.ru/)
+  assert.doesNotMatch(body.children[0].children[0].textContent,/PRIVATE_DEMO|token=/)
 })
 
 test('required VK resource errors reveal only the host, not captcha query values', () => {

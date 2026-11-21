@@ -55,12 +55,15 @@ func TestCaptchaHooksPrecedeUpstreamScripts(t *testing.T) {
 		input := "<html>" + head + `<script src="//st.vk.ru/widget.js"></script></head><body><div id="spa_root"></div></body></html>`
 		got := rewriteCaptchaHTML(input, target)
 		injected := strings.Index(got, "window.__ftpCaptcha=")
-		upstream := strings.Index(got, `<script src="/generic_proxy?proxy_url=https%3A%2F%2Fst.vk.ru%2Fwidget.js"`)
+		upstream := strings.Index(got, `<script src="/captcha-resource/https/st.vk.ru/widget.js"`)
 		if injected < 0 || upstream < 0 || injected > upstream {
 			t.Fatalf("hooks must be installed before upstream scripts for %s", head)
 		}
 		if !strings.Contains(got, `<div id="spa_root"></div>`) {
 			t.Fatal("upstream widget root changed")
+		}
+		if !strings.Contains(got, "background:#0e0f14!important") {
+			t.Fatal("captcha page must stay dark independently of app theme")
 		}
 	}
 }

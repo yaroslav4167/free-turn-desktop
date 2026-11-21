@@ -2,7 +2,7 @@
     'use strict';
 
     const { local: LOCAL, upstream: UPSTREAM } = window.__ftpCaptcha ?? {};
-    const PROXY = '/generic_proxy?proxy_url=';
+    const PROXY = '/captcha-resource/';
     const RESULT = '/local-captcha-result';
     const CHECK = 'captchaNotRobot.check';
     let finished = false;
@@ -16,7 +16,7 @@
         try { parsed = new URL(url, UPSTREAM); } catch { return url; }
         if (parsed.origin === new URL(LOCAL).origin) return url;
         if (parsed.origin === new URL(UPSTREAM).origin) return LOCAL + parsed.pathname + parsed.search + parsed.hash;
-        return PROXY + encodeURIComponent(parsed.href);
+        return PROXY + parsed.protocol.slice(0, -1) + '/' + parsed.host + parsed.pathname + parsed.search + parsed.hash;
     }
 
     function rewriteAttr(el, attr) {
@@ -85,6 +85,10 @@
 
     function showPending() {
         if (finished || pending) return;
+        document.documentElement.style.colorScheme = 'dark';
+        document.documentElement.style.background = '#0e0f14';
+        document.body.style.background = '#0e0f14';
+        document.body.style.color = '#e1e1e1';
         const banner = document.createElement('div');
         banner.id = 'ftp-captcha-status';
         banner.style.cssText = 'position:fixed;bottom:12px;left:12px;z-index:99999;max-width:min(360px,calc(100vw - 48px));padding:10px 12px;border:1px solid #535969;border-radius:8px;font:13px/1.5 system-ui,sans-serif;color:#e1e1e1;background:#1b1c24';
@@ -129,7 +133,14 @@
         try {
             const url = new URL(resource, location.href);
             const proxied = url.pathname === '/generic_proxy' ? url.searchParams.get('proxy_url') : null;
-            const original = proxied ? new URL(proxied) : url.origin === new URL(LOCAL).origin ? new URL(url.pathname, UPSTREAM) : url;
+            let original;
+            if (url.origin === new URL(LOCAL).origin && url.pathname.startsWith(PROXY)) {
+                const parts = url.pathname.slice(PROXY.length).split('/');
+                const scheme = parts.shift(), host = parts.shift();
+                original = new URL(scheme + '://' + host + '/' + parts.join('/'));
+            } else {
+                original = proxied ? new URL(proxied) : url.origin === new URL(LOCAL).origin ? new URL(url.pathname, UPSTREAM) : url;
+            }
             // Optional advertising/telemetry failures must not look like a
             // failed captcha. Never display URL queries containing challenge IDs.
             if (!/(^|\.)vk\.(ru|com)$/i.test(original.hostname)) return;

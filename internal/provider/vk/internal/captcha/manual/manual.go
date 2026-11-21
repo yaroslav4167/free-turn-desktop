@@ -42,7 +42,7 @@ var injectJS string
 // сам inject.js статичный, без плейсхолдеров.
 func injectScriptTag(localOrigin, upstreamOrigin string) string {
 	cfg, _ := json.Marshal(map[string]string{"local": localOrigin, "upstream": upstreamOrigin})
-	return "\n<script>window.__ftpCaptcha=" + string(cfg) + ";</script>\n<script>\n" + injectJS + "</script>\n"
+	return "\n<style id=\"ftp-captcha-theme\">html,body{background:#0e0f14!important;color:#e1e1e1;color-scheme:dark}</style>\n<script>window.__ftpCaptcha=" + string(cfg) + ";</script>\n<script>\n" + injectJS + "</script>\n"
 }
 
 type browserCommand struct {
@@ -162,6 +162,11 @@ func rewriteProxyHeaderURL(raw string, targetURL *neturl.URL) string {
 	if parsed.Scheme != "http" || !isLocalCaptchaHost(parsed.Host) {
 		return raw
 	}
+	if parsed.Path == "/generic_proxy" || strings.HasPrefix(parsed.Path, resourceProxyPrefix) {
+		if resource, err := resourceProxyTarget(parsed); err == nil && isAllowedProxyHost(strings.ToLower(resource.Hostname())) {
+			return resource.String()
+		}
+	}
 	parsed.Scheme = targetURL.Scheme
 	parsed.Host = targetURL.Host
 	return parsed.String()
@@ -236,7 +241,7 @@ var htmlHeadOpenRe = regexp.MustCompile(`(?i)<head(?:\s[^>]*)?>`)
 
 // rewriteHTMLAttrsServerSide переписывает абсолютные и protocol-relative URL
 // в src/href/action HTML на стороне сервера. URL, совпадающие с upstream origin,
-// идут на localhost; остальные - через /generic_proxy, чтобы cross-domain
+// идут на localhost; остальные сохраняют каталог CDN в локальном URL, чтобы
 // ресурсы (st.vk.ru, userapi.com и т.д.) грузились через прокси.
 func rewriteHTMLAttrsServerSide(html string, targetURL *neturl.URL) string {
 	localOrigin := localCaptchaOrigin()
@@ -248,14 +253,17 @@ func rewriteHTMLAttrsServerSide(html string, targetURL *neturl.URL) string {
 		if strings.HasPrefix(rawURL, "//") {
 			absURL = targetURL.Scheme + ":" + rawURL
 		}
-		if strings.HasPrefix(absURL, upstreamOrigin) {
-			return localOrigin + absURL[len(upstreamOrigin):]
-		}
-		if strings.HasPrefix(absURL, localOrigin) {
+		parsed, err := neturl.Parse(absURL)
+		if err != nil || parsed.Host == "" || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
 			return rawURL
 		}
-		// прочие абсолютные URL -> через generic_proxy
-		return "/generic_proxy?proxy_url=" + neturl.QueryEscape(absURL)
+		if targetOrigin(parsed) == upstreamOrigin {
+			return localOrigin + parsed.RequestURI()
+		}
+		if targetOrigin(parsed) == localOrigin {
+			return rawURL
+		}
+		return resourceProxyURL(parsed)
 	}
 
 	var placeholders = make(map[string]string)
@@ -630,61 +638,9 @@ func solveViaProxy(ctx context.Context, redirectURI string, dialer net.Dialer, p
 		_, _ = fmt.Fprint(w, "ok")
 	})
 
-	mux.HandleFunc("/generic_proxy", func(w http.ResponseWriter, r *http.Request) {
-		targetAuthURL := r.URL.Query().Get("proxy_url")
-		targetParsed, err := neturl.Parse(targetAuthURL)
-		if err != nil || targetParsed.Host == "" {
-			http.Error(w, "Bad URL", http.StatusBadRequest)
-			return
-		}
-		if !isAllowedProxyHost(targetParsed.Hostname()) {
-			http.Error(w, "Forbidden host", http.StatusForbidden)
-			return
-		}
-		genericReverse := &httputil.ReverseProxy{
-			Transport:    transport,
-			ErrorHandler: captchaProxyError,
-			Rewrite: func(req *httputil.ProxyRequest) {
-				req.Out.URL.Path = targetParsed.Path
-				req.Out.URL.RawQuery = targetParsed.RawQuery
-				rewriteProxyRequest(req.Out, targetParsed)
-			},
-			ModifyResponse: func(res *http.Response) error {
-				// убираем security-заголовки, блокирующие cross-origin загрузку
-				// статики (JS/CSS) при проксировании.
-				for _, h := range []string{
-					"Content-Security-Policy",
-					"Content-Security-Policy-Report-Only",
-					"X-Content-Security-Policy",
-					"X-WebKit-CSP",
-					"Cross-Origin-Opener-Policy",
-					"Cross-Origin-Embedder-Policy",
-					"Cross-Origin-Resource-Policy",
-					"X-Frame-Options",
-					"Strict-Transport-Security",
-				} {
-					res.Header.Del(h)
-				}
-				// разрешаем cross-origin доступ к ресурсу
-				res.Header.Set("Access-Control-Allow-Origin", "*")
-
-				// captchaNotRobot.check идёт через /generic_proxy на api.vk.com/api.vk.ru.
-				if strings.Contains(targetAuthURL, "captchaNotRobot.check") {
-					bodyBytes, readErr := io.ReadAll(res.Body)
-					if readErr == nil {
-						_ = res.Body.Close()
-						res.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-						res.ContentLength = int64(len(bodyBytes))
-						res.Header.Set("Content-Length", fmt.Sprint(len(bodyBytes)))
-						notifyKey(keyCh, extractSuccessToken(bodyBytes))
-					}
-				}
-
-				return nil
-			},
-		}
-		genericReverse.ServeHTTP(w, r)
-	})
+	resources := captchaResourceHandler(transport, keyCh)
+	mux.Handle("/generic_proxy", resources)
+	mux.Handle(resourceProxyPrefix, resources)
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		Log.Debugf("[Captcha Proxy] HTTP %s %s", r.Method, r.URL.Path)
