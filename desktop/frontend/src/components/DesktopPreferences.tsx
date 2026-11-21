@@ -1,10 +1,11 @@
-import {useEffect, useState} from 'react'
+import {useEffect, useState, useSyncExternalStore} from 'react'
 import {desktop, DesktopSettings} from '../desktop'
 import Icon from './Icon'
 import UpdatePreferences from './UpdatePreferences'
 import {backend} from '../../wailsjs/go/models'
 import {availableLanguages, configureLanguage, tr} from '../language'
 import FieldLabel from './FieldLabel'
+import {configureTheme, normalizeTheme, subscribeTheme, themeSnapshot} from '../theme'
 
 function PreferenceSwitch({id, title, hint, checked, disabled, onChange}: {
   id:string; title:string; hint:string; checked:boolean; disabled:boolean; onChange:(value:boolean)=>void
@@ -17,6 +18,7 @@ function PreferenceSwitch({id, title, hint, checked, disabled, onChange}: {
 
 export default function DesktopPreferences({version, active, servers}: {version: string; active: boolean; servers: backend.Server[]}) {
   const [settings, setSettings] = useState<DesktopSettings | null>(null)
+  const theme = useSyncExternalStore(subscribeTheme, themeSnapshot)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const refresh = () => desktop().DesktopSettings().then(setSettings)
@@ -50,6 +52,17 @@ export default function DesktopPreferences({version, active, servers}: {version:
           }}>
             <option value="system">{tr('Как в системе', 'System default')}</option>
             {availableLanguages().map(language=><option key={language.code} value={language.code} lang={language.code}>{language.name}</option>)}
+          </select>
+        </div>
+        <div className="preference-row language-row">
+          <FieldLabel htmlFor="interface-theme" label={tr('Тема оформления', 'Appearance')} hint={tr('Применяется сразу. «Как в системе» автоматически следует светлой или тёмной теме ОС.', 'Applies immediately. System default automatically follows the light or dark OS theme.')} />
+          <select id="interface-theme" value={theme} disabled={busy} onChange={e=>{
+            const value=normalizeTheme(e.target.value)
+            run(async()=>{await desktop().SetTheme(value);configureTheme(value)})
+          }}>
+            <option value="system">{tr('Как в системе', 'System default')}</option>
+            <option value="light">{tr('Светлая', 'Light')}</option>
+            <option value="dark">{tr('Тёмная', 'Dark')}</option>
           </select>
         </div>
         <PreferenceSwitch id="start-at-login" title={tr('Запускать вместе с системой', 'Start at login')}

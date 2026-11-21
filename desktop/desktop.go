@@ -15,6 +15,7 @@ import (
 
 type DesktopSettings struct {
 	Language            string `json:"language"`
+	Theme               string `json:"theme"`
 	SystemLanguage      string `json:"systemLanguage"`
 	CloseToTray         bool   `json:"closeToTray"`
 	Autostart           bool   `json:"autostart"`
@@ -91,6 +92,7 @@ func (a *App) DesktopSettings() (DesktopSettings, error) {
 	}
 	return DesktopSettings{
 		Language: a.preferences.Language, SystemLanguage: integration.SystemLanguage(),
+		Theme:       a.preferences.Theme,
 		CloseToTray: a.preferences.CloseToTray, Autostart: autostart,
 		AutoConnect: a.preferences.AutoConnect, AutoConnectServerID: a.preferences.AutoConnectServerID,
 		AutoConnectError:  a.autoConnectError,
@@ -122,6 +124,21 @@ func (a *App) SetLanguage(language string) error {
 	if a.tray != nil {
 		a.tray.RefreshLanguage()
 	}
+	return nil
+}
+
+func (a *App) SetTheme(theme string) error {
+	if !integration.ValidTheme(theme) {
+		return errors.New("unsupported interface theme")
+	}
+	a.desktopMu.Lock()
+	defer a.desktopMu.Unlock()
+	prefs := a.preferences
+	prefs.Theme = theme
+	if err := integration.SavePreferences(prefs); err != nil {
+		return err
+	}
+	a.preferences = prefs
 	return nil
 }
 

@@ -55,3 +55,26 @@ func TestObsoleteRenderingPreferencesAreIgnored(t *testing.T) {
 		}
 	}
 }
+
+func TestThemeDefaultsMigrationAndValidation(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("APPDATA", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	prefs, err := LoadPreferences()
+	if err != nil || prefs.Theme != "system" {
+		t.Fatalf("default theme: %+v, %v", prefs, err)
+	}
+	path, _ := preferencesPath()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, raw := range []string{`{"closeToTray":false}`, `{"theme":"invalid","closeToTray":false}`, `{"theme":null,"closeToTray":false}`} {
+		if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		prefs, err := LoadPreferences()
+		if err != nil || prefs.Theme != "system" || prefs.CloseToTray {
+			t.Fatalf("theme migration: %+v, %v", prefs, err)
+		}
+	}
+}

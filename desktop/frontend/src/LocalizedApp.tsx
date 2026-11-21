@@ -3,6 +3,7 @@ import './loadCatalogs'
 import App from './App'
 import {desktop} from './desktop'
 import {configureLanguage, languageSnapshot, subscribeLanguage, systemLanguage} from './language'
+import {configureTheme} from './theme'
 
 export default function LocalizedApp() {
   useSyncExternalStore(subscribeLanguage, languageSnapshot)
@@ -10,7 +11,10 @@ export default function LocalizedApp() {
   useEffect(() => {
     let active = true
     Promise.resolve().then(() => desktop().DesktopSettings()).then(settings => {
-      if (active) configureLanguage(settings.language, settings.systemLanguage)
+      if (active) {
+        configureLanguage(settings.language, settings.systemLanguage)
+        configureTheme(settings.theme)
+      }
     }).catch(() => {
       if (active) configureLanguage('system', systemLanguage(navigator.languages || [navigator.language]))
     }).finally(() => { if (active) setReady(true) })

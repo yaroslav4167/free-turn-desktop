@@ -11,6 +11,7 @@ import (
 
 type Preferences struct {
 	Language            string `json:"language"`
+	Theme               string `json:"theme"`
 	CloseToTray         bool   `json:"closeToTray"`
 	AutoConnect         bool   `json:"autoConnect"`
 	AutoConnectServerID string `json:"autoConnectServerId"`
@@ -23,7 +24,7 @@ func preferencesPath() (string, error) {
 }
 
 func LoadPreferences() (Preferences, error) {
-	prefs := Preferences{Language: "system", CloseToTray: true, AutoCheckUpdates: true}
+	prefs := Preferences{Language: "system", Theme: "system", CloseToTray: true, AutoCheckUpdates: true}
 	path, err := preferencesPath()
 	if err != nil {
 		return prefs, err
@@ -39,10 +40,15 @@ func LoadPreferences() (Preferences, error) {
 	if !ValidLanguage(prefs.Language) {
 		prefs.Language = "system"
 	}
+	if !ValidTheme(prefs.Theme) {
+		prefs.Theme = "system"
+	}
 	return prefs, err
 }
 
 func ValidLanguage(value string) bool { return value == "system" || locale.Supported(value) }
+
+func ValidTheme(value string) bool { return value == "system" || value == "light" || value == "dark" }
 
 func SystemLanguage() string {
 	for _, key := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {

@@ -71,6 +71,7 @@ def main():
         path.write_bytes(render(ASSETS / 'icon.svg', size))
     (ROOT / 'desktop/build/windows/icon.ico').write_bytes(ico(ASSETS / 'icon.svg', (16, 24, 32, 48, 64, 128, 256)))
     (ROOT / 'desktop/frontend/public/freeturn.svg').write_bytes((ASSETS / 'interface.svg').read_bytes())
+    (ROOT / 'desktop/frontend/public/freeturn-light.svg').write_text(monochrome('#2f4677'))
     (ROOT / 'desktop/frontend/public/favicon.svg').write_bytes((ASSETS / 'icon.svg').read_bytes())
     # Keep the old light-icon filenames as compatibility aliases, not old FT artwork.
     (ASSETS / 'icon-light.svg').write_bytes((ASSETS / 'tray-light.svg').read_bytes())

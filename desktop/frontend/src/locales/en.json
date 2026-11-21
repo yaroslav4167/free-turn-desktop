@@ -2,6 +2,10 @@
   "code": "en",
   "name": "English",
   "messages": {
+    "Тема оформления": "Appearance",
+    "Светлая": "Light",
+    "Тёмная": "Dark",
+    "Применяется сразу. «Как в системе» автоматически следует светлой или тёмной теме ОС.": "Applies immediately. System default automatically follows the light or dark OS theme.",
     "Ссылка на звонок VK Calls из профиля": "VK Calls link included in the profile",
     "Владелец включил эту ссылку в профиль. Она будет сохранена при импорте; изменить её можно в настройках профиля.": "The owner included this link in the profile. It will be saved on import; you can change it in the profile settings.",
     "DNS-режим реле и подготовки VPN. При подготовке в Auto используется системный DNS или заданные резолверы, при сбое — DoH. В plain и doh резервный режим не включается. Не заменяет DNS из конфигурации WireGuard.": "DNS mode for the relay and VPN preparation. During preparation, Auto uses system DNS or custom resolvers, with DoH on failure. Plain and doh do not switch modes. Does not replace DNS in the WireGuard configuration.",

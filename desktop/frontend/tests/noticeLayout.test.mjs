@@ -38,6 +38,9 @@ test('notification overlay is bounded and only notices intercept pointer events'
   assert.match(rule('.notification-stack'), /overflow-y:\s*auto/)
   assert.match(rule('.notification-stack'), /pointer-events:\s*none/)
   assert.match(rule('.notification-stack > .notice'), /pointer-events:\s*auto/)
-  assert.match(rule('.notification-stack > .notice.error'), /background:\s*#[\da-f]{6};/)
-  assert.match(rule('.notification-stack > .notice.info:not(.captcha-notice)'), /background:\s*#[\da-f]{6};/)
+  assert.match(rule('.notification-stack > .notice.error'), /background:\s*var\(--toast-error\);/)
+  assert.match(rule('.notification-stack > .notice.info:not(.captcha-notice)'), /background:\s*var\(--toast-info\);/)
+  for (const palette of [css.match(/:root\s*\{([^}]+)\}/)[1], css.match(/:root\[data-theme='light'\]\s*\{([^}]+)\}/)[1]]) {
+    for (const variable of ['--toast-error', '--toast-info']) assert.match(palette, new RegExp(variable+':\\s*#[\\da-f]{6};'))
+  }
 })

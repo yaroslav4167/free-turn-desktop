@@ -15,7 +15,92 @@
   --settings-control-height: 36px;
   --scrollbar-thumb: #454957;
   --scrollbar-thumb-hover: #687185;
+  --bg-card: #20212a;
+  --bg-sidebar: #191a2280;
+  --bg-log: #0d0f13;
+  --hover: #ffffff0a;
+  --on-accent: #181923;
+  --accent-hover: #d9def0;
+  --nav-active: #d2d5e1;
+  --nav-active-border: #e3e5ed;
+  --nav-active-text: #20212a;
+  --info-text: #a9c6ff;
+  --error-text: #ff9d99;
+  --toast-info: #1b263c;
+  --toast-error: #2d1c22;
+  --switch-border: #525461;
+  --switch-track: #30313e;
+  --switch-knob: #a0a1ae;
+  --switch-on: #626b88;
+  --switch-on-knob: #f0f0f7;
+  --power-idle-fill: #22242b;
+  --power-idle-border: #474953;
+  --power-idle-text: #e2e3eb;
+  --power-connected-fill: #284033;
+  --power-connected-border: #6eae88;
+  --power-connected-text: #d2f4df;
+  --connected-text: #b9e3ca;
+  --power-error-border: #855550;
+  --power-error-text: #f59d95;
+  --power-warn-fill: #493f26;
+  --power-warn-border: #d5b35b;
+  --power-warn-text: #ffe6a3;
+  --captcha-bg: #302a1d;
+  --captcha-border: #8b763e;
+  --chart-tx: #a6b5d7;
 }
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f5f6fa;
+  --bg-elevated: #ffffff;
+  --bg-input: #ffffff;
+  --border: #ccd1dd;
+  --text: #202635;
+  --text-dim: #566174;
+  --accent: #465d92;
+  --accent-dim: #e3e9f5;
+  --ok: #16763d;
+  --warn: #866000;
+  --err: #bc302b;
+  --scrollbar-thumb: #a1aaba;
+  --scrollbar-thumb-hover: #727e92;
+  --bg-card: #ffffff;
+  --bg-sidebar: #edf0f7;
+  --bg-log: #eef1f7;
+  --hover: #182d500a;
+  --on-accent: #ffffff;
+  --accent-hover: #354a7a;
+  --nav-active: #dfe6f5;
+  --nav-active-border: #bdcbe5;
+  --nav-active-text: #2f4677;
+  --info-text: #294f89;
+  --error-text: #a72824;
+  --toast-info: #e7effc;
+  --toast-error: #fce9e7;
+  --switch-border: #8c96a8;
+  --switch-track: #e0e4ed;
+  --switch-knob: #6a768b;
+  --switch-on: #465d92;
+  --switch-on-knob: #ffffff;
+  --power-idle-fill: #e6eaf3;
+  --power-idle-border: #9ca8bd;
+  --power-idle-text: #384d74;
+  --power-connected-fill: #dcefe3;
+  --power-connected-border: #44815a;
+  --power-connected-text: #1d653b;
+  --connected-text: #216e40;
+  --power-error-border: #b55b55;
+  --power-error-text: #ac3029;
+  --power-warn-fill: #fff0c7;
+  --power-warn-border: #9e7518;
+  --power-warn-text: #785400;
+  --captcha-bg: #fff5d9;
+  --captcha-border: #baa05b;
+  --chart-tx: #526ea2;
+}
+
+:root[data-theme='light'] .app-icon { content: url('/freeturn-light.svg'); }
 
 * {
   box-sizing: border-box;
@@ -139,7 +224,7 @@ select optgroup {
 }
 
 .server-item:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--hover);
 }
 
 .server-item.active {
@@ -246,7 +331,7 @@ select optgroup {
   font-size: 11px;
   padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--hover);
   color: var(--text-dim);
   white-space: nowrap;
 }
@@ -287,13 +372,13 @@ select optgroup {
 
 .notice.error {
   background: rgba(240, 85, 79, 0.1);
-  color: #ff9d99;
+  color: var(--error-text);
   border: 1px solid rgba(240, 85, 79, 0.3);
 }
 
 .notice.info {
   background: rgba(79, 140, 255, 0.1);
-  color: #a9c6ff;
+  color: var(--info-text);
   border: 1px solid rgba(79, 140, 255, 0.3);
 }
 
@@ -464,7 +549,7 @@ select optgroup {
 .preference-row > .field-label { margin: 0; flex: 1; }
 .preference-row > .field-label label { font-size: 13px; font-weight: 600; color: var(--text); }
 .profile-settings .kcp-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); }
-.profile-log-panel { flex-shrink: 0; border-top: 1px solid var(--border); background: #0d0f13; }
+.profile-log-panel { flex-shrink: 0; border-top: 1px solid var(--border); background: var(--bg-log); }
 .profile-log-panel > summary { cursor: pointer; padding: 9px 14px; font-size: 12px; color: var(--text-dim); }
 .profile-log-panel > summary strong { font-weight: 500; }
 .profile-log-panel > summary span { margin-left: 12px; font-size: 11px; }
@@ -520,11 +605,11 @@ select optgroup {
 .btn.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #181923;
+  color: var(--on-accent);
 }
 
 .btn.primary:hover {
-  background: #d9def0;
+  background: var(--accent-hover);
 }
 
 .btn.danger {
@@ -553,7 +638,7 @@ select optgroup {
 
 .log-console {
   border-top: 1px solid var(--border);
-  background: #0d0f13;
+  background: var(--bg-log);
   display: flex;
   flex-direction: column;
   height: 220px;
@@ -710,7 +795,7 @@ select optgroup {
   padding: 8px 10px;
   max-height: 150px;
   overflow-y: auto;
-  background: #0d0f13;
+  background: var(--bg-log);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text-dim);
@@ -853,7 +938,7 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #292b37;
+  background: var(--accent-dim);
   color: var(--accent);
   width: 44px;
   height: 44px;
@@ -951,12 +1036,12 @@ button:disabled {
 }
 .nav-item:hover {
   color: var(--text);
-  background: #ffffff08;
+  background: var(--hover);
 }
 .nav-item.active {
-  background: #d2d5e1;
-  border-color: #e3e5ed;
-  color: #20212a;
+  background: var(--nav-active);
+  border-color: var(--nav-active-border);
+  color: var(--nav-active-text);
 }
 .nav-footer {
   margin-top: 20px;
@@ -986,7 +1071,7 @@ button:disabled {
   min-height: 0;
 }
 .profiles-page .sidebar {
-  background: #191a2280;
+  background: var(--bg-sidebar);
   border-left: 1px solid var(--border);
 }
 .profiles-page .log-console {
@@ -1047,10 +1132,10 @@ button:disabled {
   pointer-events: auto;
 }
 .notification-stack > .notice.error {
-  background: #2d1c22;
+  background: var(--toast-error);
 }
 .notification-stack > .notice.info:not(.captcha-notice) {
-  background: #1b263c;
+  background: var(--toast-info);
 }
 .settings-page[hidden] {
   display: none;
@@ -1097,8 +1182,8 @@ button:disabled {
   font-size: 11px;
 }
 .connection-page > .page-heading .icon-button {
-  background: #ffffff05;
-  border-color: #ffffff12;
+  background: var(--hover);
+  border-color: var(--border);
 }
 .connection-center {
   flex: 1 0 auto;
@@ -1115,16 +1200,16 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  border: 1px solid #ffffff0c;
+  border: 1px solid var(--border);
   padding: 7px 12px;
   border-radius: 30px;
   font-size: 11px;
   color: var(--text-dim);
-  background: #1c1d24;
+  background: var(--bg-elevated);
 }
 .power-button {
-  --power-fill: #22242b;
-  --power-border: #474953;
+  --power-fill: var(--power-idle-fill);
+  --power-border: var(--power-idle-border);
   position: relative;
   margin: 32px 0 12px;
   width: 150px;
@@ -1132,7 +1217,7 @@ button:disabled {
   padding: 0;
   border-radius: 12px;
   border: 0;
-  color: #e2e3eb;
+  color: var(--power-idle-text);
   transition: color 400ms ease;
   background: transparent;
   display: flex;
@@ -1149,12 +1234,12 @@ button:disabled {
   opacity: 0.4;
 }
 .connected .power-button {
-  --power-fill: #284033;
-  color: #d2f4df;
-  --power-border: #6eae88;
+  --power-fill: var(--power-connected-fill);
+  color: var(--power-connected-text);
+  --power-border: var(--power-connected-border);
 }
 .connected h2 {
-  color: #b9e3ca;
+  color: var(--connected-text);
 }
 .power-action {
   position: absolute;
@@ -1166,7 +1251,7 @@ button:disabled {
   letter-spacing: 0.2px;
 }
 .mode-badge.is-connected {
-  color: #b9e3ca;
+  color: var(--connected-text);
   background: #70bc910d;
   border-color: #70bc9130;
 }
@@ -1177,8 +1262,8 @@ button:disabled {
   background: #91d0ab;
 }
 .error .power-button {
-  color: #f59d95;
-  --power-border: #855550;
+  color: var(--power-error-text);
+  --power-border: var(--power-error-border);
 }
 .power-outline {
   position: absolute;
@@ -1267,7 +1352,7 @@ button:disabled {
 .traffic-card {
   position: relative;
   overflow: hidden;
-  background: #20212b;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 16px 18px;
@@ -1287,7 +1372,7 @@ button:disabled {
   pointer-events: none;
 }
 .traffic-sparkline.tx {
-  color: #a6b5d7;
+  color: var(--chart-tx);
 }
 .traffic-card > span {
   color: var(--text-dim);
@@ -1316,7 +1401,7 @@ button:disabled {
   width: 100%;
   max-width: 440px;
   padding: 10px 12px 10px 18px;
-  background: #22232d;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 16px;
   margin: 20px auto 0;
@@ -1346,7 +1431,7 @@ button:disabled {
   margin-bottom: 18px;
 }
 .settings-card {
-  background: #20212a;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 15px;
   padding: 16px;
@@ -1389,12 +1474,12 @@ button:disabled {
   appearance: none;
   -webkit-appearance: none;
   position: relative;
-  border: 1px solid #525461;
+  border: 1px solid var(--switch-border);
   border-radius: 20px;
   width: 38px;
   height: 22px;
   flex-shrink: 0;
-  background: #30313e;
+  background: var(--switch-track);
   cursor: pointer;
 }
 .preference-row input::after {
@@ -1403,17 +1488,17 @@ button:disabled {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #a0a1ae;
+  background: var(--switch-knob);
   left: 3px;
   top: 3px;
 }
 .preference-row input:checked {
-  background: #626b88;
+  background: var(--switch-on);
   border-color: var(--accent);
 }
 .preference-row input:checked::after {
   transform: translateX(16px);
-  background: #f0f0f7;
+  background: var(--switch-on-knob);
 }
 .preference-row input:disabled {
   opacity: 0.45;
@@ -1468,7 +1553,7 @@ button:disabled {
   inset: 0;
   width: 150px;
   height: 150px;
-  color: #d7def8;
+  color: var(--accent);
   pointer-events: none;
   opacity: 0;
   transform-origin: 75px 75px;
@@ -1548,24 +1633,24 @@ button:disabled {
 .routing-list-heading { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; }
 .routing-list-heading h3 { margin: 0; }
 .verification-required .power-button {
-  --power-fill: #493f26;
-  --power-border: #d5b35b;
-  color: #ffe6a3;
+  --power-fill: var(--power-warn-fill);
+  --power-border: var(--power-warn-border);
+  color: var(--power-warn-text);
 }
-.verification-required .power-button:hover:not(:disabled) { --power-border: #ffe6a3; }
+.verification-required .power-button:hover:not(:disabled) { --power-border: var(--power-warn-text); }
 .verification-required .mode-badge {
-  background: #493f26;
-  border-color: #8b763e;
-  color: #ffe6a3;
+  background: var(--power-warn-fill);
+  border-color: var(--captcha-border);
+  color: var(--power-warn-text);
 }
 .verification-required .connection-indicator { background: #e5b93a; }
 .notice.captcha-notice {
-  background: #302a1d;
-  color: #ffe6a3;
-  border-color: #8b763e;
+  background: var(--captcha-bg);
+  color: var(--power-warn-text);
+  border-color: var(--captcha-border);
 }
 .captcha-notice .btn {
-  background: #ffe6a3;
-  border-color: #d5b35b;
-  color: #302a1d;
+  background: var(--power-warn-text);
+  border-color: var(--power-warn-border);
+  color: var(--captcha-bg);
 }

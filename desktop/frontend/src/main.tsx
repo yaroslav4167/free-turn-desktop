@@ -3,6 +3,9 @@ import {createRoot} from 'react-dom/client'
 import './style.css'
 import LocalizedApp from './LocalizedApp'
 import ErrorBoundary from './ErrorBoundary'
+import {initializeTheme} from './theme'
+
+initializeTheme()
 
 const container = document.getElementById('root')
 

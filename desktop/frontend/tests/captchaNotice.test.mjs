@@ -24,5 +24,7 @@ test('connected captcha warning keeps disconnect action and uses amber rather th
   assert.match(component, /verificationRequired = connected && !!status\.captchaUrl/)
   assert.match(component, /verification-required/)
   const css = read('style.css')
-  assert.match(css, /\.verification-required \.power-button\s*\{[^}]*--power-fill:\s*#493f26/)
+  assert.match(css, /\.verification-required \.power-button\s*\{[^}]*--power-fill:\s*var\(--power-warn-fill\)/)
+  assert.match(css, /--power-warn-fill: #493f26/)
+  assert.match(css, /:root\[data-theme='light'\][^}]*--power-warn-fill: #fff0c7/)
 })
