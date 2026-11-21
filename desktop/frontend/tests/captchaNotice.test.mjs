@@ -42,3 +42,10 @@ test('verification opens automatically in an isolated child before normal deskto
   assert.match(notice,/onClick=\{\(\) => open\(\)\}/)
   assert.match(notice,/onClick=\{\(\) => open\(true\)\}/)
 })
+
+test('manual captcha preference explicitly describes skipping the automatic attempt', () => {
+  const form=read('components/ServerForm.tsx')
+  assert.match(form,/checked=\{s.manualCaptcha\}/)
+  assert.match(form,/Пропускать авто-решение captcha/)
+  assert.match(form,/сначала пробует авто-решение и открывает окно только при необходимости/)
+})

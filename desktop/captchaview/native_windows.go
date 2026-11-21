@@ -174,6 +174,7 @@ func runNative(cfg childConfig) error {
 	var dark int32 = 1
 	windows.NewLazySystemDLL("dwmapi.dll").NewProc("DwmSetWindowAttribute").Call(hwnd, 20, uintptr(unsafe.Pointer(&dark)), 4)
 	browser = edge.NewChromium()
+	browser.SetGlobalPermission(edge.CoreWebView2PermissionStateDeny)
 	browser.DataPath = cfg.CacheDir
 	browser.SetErrorCallback(func(error) { nativeCommand(3) })
 	if !browser.Embed(hwnd) || browser.GetController() == nil || closing {
@@ -188,7 +189,6 @@ func runNative(cfg childConfig) error {
 			return err
 		}
 	}
-	browser.SetGlobalPermission(edge.CoreWebView2PermissionStateDeny)
 	browser.SetBackgroundColour(14, 15, 20, 255)
 	browser.SetPadding(edge.Rect{Top: 44})
 	webview, err := browser.GetController().GetCoreWebView2()

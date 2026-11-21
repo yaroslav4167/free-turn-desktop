@@ -26,6 +26,7 @@ func TestNativeCaptchaWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 	probe, stillHere := make(chan bool, 1), make(chan struct{}, 1)
+	mediaDenied := make(chan bool, 1)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/probe", func(w http.ResponseWriter, r *http.Request) {
 		select {
@@ -41,10 +42,27 @@ func TestNativeCaptchaWindow(t *testing.T) {
 		}
 		w.WriteHeader(204)
 	})
+	mux.HandleFunc("/media-probe", func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case mediaDenied <- r.URL.Query().Get("denied") == "true":
+		default:
+		}
+		w.WriteHeader(204)
+	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = fmt.Fprint(w, `<!doctype html><html><body style="background:#0e0f14;color:white">Synthetic verification: no VK connection<script>
-fetch('/probe?bridge='+String(!!(window.go||window.wails||window.runtime))).then(()=>{
+async function rejectsCapture(method,constraints) {
+  const devices=navigator.mediaDevices;
+  if (!devices || typeof devices[method]!=='function') return true;
+  try { const stream=await devices[method](constraints);stream.getTracks().forEach(t=>t.stop());return false; }
+  catch(e) {return true;}
+}
+fetch('/probe?bridge='+String(!!(window.go||window.wails||window.runtime))).then(async()=>{
+  const camera=await rejectsCapture('getUserMedia',{video:true});
+  const microphone=await rejectsCapture('getUserMedia',{audio:true});
+  const screen=await rejectsCapture('getDisplayMedia',{video:true});
+  await fetch('/media-probe?denied='+String(camera&&microphone&&screen));
   try { location.href='file:///freeturn-captcha-do-not-open'; } catch(e) {}
   setTimeout(()=>fetch('/still-here'),200);
 });</script></body></html>`)
@@ -85,6 +103,17 @@ fetch('/probe?bridge='+String(!!(window.go||window.wails||window.runtime))).then
 		t.Fatalf("native view exited before rendering: %v; %s", err, stderr.String())
 	case <-ctx.Done():
 		t.Fatal("native view did not render synthetic page")
+	}
+	select {
+	case denied := <-mediaDenied:
+		if !denied {
+			cancel()
+			t.Fatal("verification page received a capture stream")
+		}
+	case err := <-finished:
+		t.Fatalf("native view closed during media permission check: %v", err)
+	case <-ctx.Done():
+		t.Fatal("media capture did not reject without prompting")
 	}
 	select {
 	case <-stillHere:

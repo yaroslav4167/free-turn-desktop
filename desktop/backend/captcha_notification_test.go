@@ -61,3 +61,15 @@ func TestCaptchaPresenterAutomaticallyOpensAndClosesWithoutDroppingWorkingStream
 		t.Fatal("disconnect kept verification window open")
 	}
 }
+
+func TestAutomaticCaptchaIsDefaultAndExplicitManualChoiceIsPreserved(t *testing.T) {
+	profile := DefaultServer()
+	if profile.ManualCaptcha || profile.ToCoreConfig().VK.ManualCaptcha {
+		t.Fatal("new profile skips automatic captcha solving")
+	}
+	profile.ManualCaptcha = true
+	normalizeServer(&profile)
+	if !profile.ManualCaptcha || !profile.ToCoreConfig().VK.ManualCaptcha {
+		t.Fatal("explicit manual preference was silently reset")
+	}
+}

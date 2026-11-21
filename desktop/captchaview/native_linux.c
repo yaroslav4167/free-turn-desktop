@@ -70,11 +70,16 @@ int ft_captcha_run(const char *url, const char *title, const char *reload, const
     gtk_box_pack_start(GTK_BOX(toolbar),reload_button,FALSE,FALSE,0);
     gtk_box_pack_end(GTK_BOX(toolbar),external_button,FALSE,FALSE,0);
     gtk_box_pack_start(GTK_BOX(box),toolbar,FALSE,FALSE,0);
-    view=WEBKIT_WEB_VIEW(webkit_web_view_new_with_context(context));
-    g_object_unref(context);
-    WebKitSettings *settings=webkit_web_view_get_settings(view);
+    // Captcha may play an audio file, but never needs camera/microphone capture.
+    // Disable MediaStream before creating the view/device provider, not only
+    // in the permission callback after a page has requested a device.
+    WebKitSettings *settings=webkit_settings_new();
+    webkit_settings_set_enable_media_stream(settings,FALSE);
     webkit_settings_set_enable_developer_extras(settings,FALSE);
     webkit_settings_set_javascript_can_open_windows_automatically(settings,FALSE);
+    view=WEBKIT_WEB_VIEW(g_object_new(WEBKIT_TYPE_WEB_VIEW,"web-context",context,"settings",settings,NULL));
+    g_object_unref(settings);
+    g_object_unref(context);
     GdkRGBA background={14.0/255,15.0/255,20.0/255,1};
     webkit_web_view_set_background_color(view,&background);
     g_signal_connect(view,"decide-policy",G_CALLBACK(decide),NULL);

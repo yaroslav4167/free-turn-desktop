@@ -652,7 +652,7 @@ func solveViaProxy(ctx context.Context, redirectURI string, dialer net.Dialer, p
 		proxy.ServeHTTP(w, r)
 	})
 
-	return runCaptchaServerAndWait(ctx, mux, localCaptchaURLForTarget(targetURL), keyCh, "proxy HTTP server error", present)
+	return runCaptchaServerAndWait(ctx, denyCapture(mux), localCaptchaURLForTarget(targetURL), keyCh, "proxy HTTP server error", present)
 }
 
 func openBrowser(url string) {

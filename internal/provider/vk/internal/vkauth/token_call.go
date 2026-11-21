@@ -157,6 +157,9 @@ func (c *Client) solveCaptcha(
 		}
 
 	case CaptchaSolveModeManual:
+		if c.manualOnly {
+			c.log.Infof("[STREAM %d] [Captcha] Manual-only mode explicitly enabled; skipping auto captcha", streamID)
+		}
 		if c.manualSolve == nil {
 			solveErr = fmt.Errorf("manual captcha solver not configured")
 			break
@@ -183,7 +186,7 @@ func (c *Client) solveCaptcha(
 					c.log.Debugf("[STREAM %d] [Captcha] Token received (ignoring cleanup error: %v)", streamID, solveErr)
 					solveErr = nil
 				}
-				c.log.Infof("[STREAM %d] [Captcha] Got token from browser", streamID)
+				c.log.Infof("[STREAM %d] [Captcha] Got token from manual verification", streamID)
 			} else if solveErr != nil {
 				c.log.Warnf("[STREAM %d] [Captcha] Manual solver error: %v", streamID, solveErr)
 			}
