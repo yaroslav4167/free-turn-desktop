@@ -38,3 +38,26 @@ func TestCaptchaNotificationOpensOnlyCurrentChallenge(t *testing.T) {
 		t.Fatal("stale notification opened an expired captcha")
 	}
 }
+
+func TestCaptchaPresenterAutomaticallyOpensAndClosesWithoutDroppingWorkingStreams(t *testing.T) {
+	e := &Engine{}
+	var shown []string
+	e.SetCaptchaPresenter(func(url string) { shown = append(shown, url) })
+	e.OnCaptcha("http://localhost:8765")
+	if len(shown) != 1 || shown[0] != "http://localhost:8765" {
+		t.Fatal("captcha needs an extra UI click")
+	}
+	e.OnState("connected", 1, 2, "")
+	if len(shown) != 1 {
+		t.Fatal("working streams closed captcha")
+	}
+	e.OnCaptcha("")
+	if len(shown) != 2 || shown[1] != "" {
+		t.Fatal("completed verification window stayed open")
+	}
+	e.OnCaptcha("http://localhost:8765")
+	e.OnState("idle", 0, 0, "")
+	if shown[len(shown)-1] != "" {
+		t.Fatal("disconnect kept verification window open")
+	}
+}

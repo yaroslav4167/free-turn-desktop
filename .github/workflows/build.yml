@@ -25,7 +25,7 @@ jobs:
       - uses: actions/setup-node@v7.1.0
         with:
           node-version: 22
-      - run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config
+      - run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config xvfb dbus-x11
       - name: Build Linux archive
         env:
           VERSION: ${{ inputs.tag || 'v3.0.0' }}
@@ -39,6 +39,8 @@ jobs:
       - run: npm --prefix desktop/frontend test
       - run: go test -race -tags webkit2_41 ./internal/... ./mobile ./desktop/...
       - run: go vet -tags webkit2_41 ./internal/session ./mobile ./desktop/...
+      - name: Exercise isolated captcha window with a synthetic page
+        run: FREETURN_TEST_CAPTCHA_BINARY="$PWD/desktop/build/bin/freeturn-desktop" dbus-run-session -- xvfb-run -a go test -tags webkit2_41 ./desktop/captchaview -run '^TestNativeCaptchaWindow$' -v -count=1 -timeout 45s
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: desktop-linux-amd64

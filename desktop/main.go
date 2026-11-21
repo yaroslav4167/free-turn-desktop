@@ -10,6 +10,7 @@ import (
 	appassets "github.com/samosvalishe/free-turn-proxy/desktop/assets"
 	"github.com/samosvalishe/free-turn-proxy/desktop/backend/vpnservice"
 	"github.com/samosvalishe/free-turn-proxy/desktop/backend/wintunnel"
+	"github.com/samosvalishe/free-turn-proxy/desktop/captchaview"
 	"github.com/samosvalishe/free-turn-proxy/desktop/integration"
 
 	"github.com/wailsapp/wails/v2"
@@ -24,6 +25,13 @@ import (
 var assets embed.FS
 
 func main() {
+	// No profile store, updater, VPN or Wails bridge in the verification process.
+	if len(os.Args) == 2 && os.Args[1] == captchaview.ChildFlag {
+		if err := captchaview.RunChild(os.Stdin); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
 	if integration.HandleUpdateProcess() {
 		return
 	}

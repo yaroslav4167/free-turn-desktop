@@ -8,7 +8,9 @@ const read = file => readFileSync(new URL('../src/' + file, import.meta.url), 'u
 test('captcha action is independent of connection phase and visible on every screen', () => {
   const notice = read('components/CaptchaNotice.tsx')
   assert.match(notice, /if \(!url\) return null/)
-  assert.match(notice, /BrowserOpenURL\(url\)/)
+  assert.match(notice, /desktop\(\).OpenCaptcha\(\)/)
+  assert.match(notice, /desktop\(\).OpenCaptchaExternal\(\)/)
+  assert.doesNotMatch(notice, /BrowserOpenURL\(url\)/)
   assert.doesNotMatch(notice, /state === 'captcha'/)
   const app = read('App.tsx')
   assert.match(app, /<CaptchaNotice url=\{status\.captchaUrl \|\| ''\}/)
@@ -27,4 +29,16 @@ test('connected captcha warning keeps disconnect action and uses amber rather th
   assert.match(css, /\.verification-required \.power-button\s*\{[^}]*--power-fill:\s*var\(--power-warn-fill\)/)
   assert.match(css, /--power-warn-fill: #493f26/)
   assert.match(css, /:root\[data-theme='light'\][^}]*--power-warn-fill: #fff0c7/)
+})
+
+test('verification opens automatically in an isolated child before normal desktop startup', () => {
+  const main=readFileSync(new URL('../../main.go',import.meta.url),'utf8')
+  assert.ok(main.indexOf('captchaview.RunChild(os.Stdin)')<main.indexOf('integration.HandleUpdateProcess()'))
+  assert.ok(main.indexOf('captchaview.RunChild(os.Stdin)')<main.indexOf('NewApp()'))
+  const engine=readFileSync(new URL('../../backend/engine.go',import.meta.url),'utf8')
+  assert.match(engine,/presenter\(url\)/)
+  assert.match(engine,/url != "" && presenter == nil/)
+  const notice=read('components/CaptchaNotice.tsx')
+  assert.match(notice,/onClick=\{\(\) => open\(\)\}/)
+  assert.match(notice,/onClick=\{\(\) => open\(true\)\}/)
 })

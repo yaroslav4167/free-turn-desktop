@@ -2,6 +2,7 @@
   "code": "en",
   "name": "English",
   "messages": {
+    "Для подключения требуется проверка VK.": "VK verification is required to connect.",
     "Тема оформления": "Appearance",
     "Светлая": "Light",
     "Тёмная": "Dark",

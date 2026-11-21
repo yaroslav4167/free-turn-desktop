@@ -22,6 +22,8 @@ interface DesktopAPI {
   MeasurePing(serverId: string): Promise<{serverId: string, host: string, milliseconds: number}>
   SetLanguage(language: string): Promise<void>
   SetTheme(theme: string): Promise<void>
+  OpenCaptcha(): Promise<void>
+  OpenCaptchaExternal(): Promise<void>
   UpdateState(): Promise<UpdateState>
   CheckForUpdates(): Promise<void>
   DownloadUpdate(): Promise<void>

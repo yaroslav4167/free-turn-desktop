@@ -12,6 +12,7 @@ import (
 	"github.com/samosvalishe/free-turn-proxy/desktop/backend"
 	"github.com/samosvalishe/free-turn-proxy/desktop/backend/serversetup"
 	"github.com/samosvalishe/free-turn-proxy/desktop/backend/wintunnel"
+	"github.com/samosvalishe/free-turn-proxy/desktop/captchaview"
 	"github.com/samosvalishe/free-turn-proxy/desktop/integration"
 	"github.com/samosvalishe/free-turn-proxy/desktop/locale"
 	"github.com/samosvalishe/free-turn-proxy/desktop/tray"
@@ -47,6 +48,7 @@ type App struct {
 	updateInstallMu   sync.Mutex
 	updateInstallGate *os.File
 	updateResult      integration.UpdateResult
+	captchaView       *captchaview.Controller
 }
 
 func NewApp() *App {
@@ -74,12 +76,17 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	a.captchaView = captchaview.New(a.openCaptchaExternal)
+	a.engine.SetCaptchaPresenter(a.presentCaptcha)
 	a.engine.SetContext(ctx)
 	a.startTray()
 	a.startUpdateChecks(ctx)
 }
 
 func (a *App) shutdown(ctx context.Context) {
+	if a.captchaView != nil {
+		a.captchaView.Close()
+	}
 	if a.updateCancel != nil {
 		a.updateCancel()
 	}

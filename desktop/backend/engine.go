@@ -50,13 +50,14 @@ type Engine struct {
 	ctx   context.Context
 	store *Store
 
-	mu             sync.Mutex
-	serverID       string
-	traffic        trafficMeter
-	planCancel     context.CancelFunc
-	captchaURL     string
-	pingCancel     context.CancelFunc
-	pingGeneration uint64
+	mu               sync.Mutex
+	serverID         string
+	traffic          trafficMeter
+	planCancel       context.CancelFunc
+	captchaURL       string
+	captchaPresenter func(string)
+	pingCancel       context.CancelFunc
+	pingGeneration   uint64
 }
 
 func NewEngine(store *Store) *Engine {
@@ -165,8 +166,12 @@ func (e *Engine) Disconnect() {
 func (e *Engine) forceStop() {
 	e.mu.Lock()
 	e.captchaURL = ""
+	presenter := e.captchaPresenter
 	e.cancelPingLocked()
 	e.mu.Unlock()
+	if presenter != nil {
+		presenter("")
+	}
 	mobile.Stop()
 	wintunnel.Disconnect()
 }
@@ -212,8 +217,12 @@ func (e *Engine) OnState(state string, streams, total int, errMsg string) {
 	if state == mobile.StateIdle || state == mobile.StateError {
 		e.mu.Lock()
 		e.captchaURL = ""
+		presenter := e.captchaPresenter
 		e.cancelPingLocked()
 		e.mu.Unlock()
+		if presenter != nil {
+			presenter("")
+		}
 	}
 	if e.ctx == nil {
 		return
@@ -232,10 +241,20 @@ func (e *Engine) OnLog(level, msg string, unixMillis int64) {
 	wailsruntime.EventsEmit(e.ctx, eventLog, LogLine{Level: level, Msg: msg, AtMs: unixMillis})
 }
 
+func (e *Engine) SetCaptchaPresenter(presenter func(string)) {
+	e.mu.Lock()
+	e.captchaPresenter = presenter
+	e.mu.Unlock()
+}
+
 func (e *Engine) OnCaptcha(url string) {
 	e.mu.Lock()
 	e.captchaURL = url
+	presenter := e.captchaPresenter
 	e.mu.Unlock()
+	if presenter != nil {
+		presenter(url)
+	}
 	if e.ctx == nil {
 		return
 	}
@@ -243,7 +262,7 @@ func (e *Engine) OnCaptcha(url string) {
 	// Persist in every snapshot and push immediately. Captcha can coexist with
 	// connected streams, and a newly mounted frontend may miss the one-shot event.
 	wailsruntime.EventsEmit(e.ctx, eventStats, e.Status())
-	if url != "" {
+	if url != "" && presenter == nil {
 		go func() {
 			_ = notify.ShowCaptchaNotification(url, func() {
 				e.openCurrentCaptcha(url, func() { wailsruntime.BrowserOpenURL(e.ctx, url) })
