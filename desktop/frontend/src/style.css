@@ -1682,3 +1682,16 @@ button:disabled {
 .settings-diagnostics > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; border-radius: var(--radius); }
 .settings-diagnostics[open] > summary { border-bottom: 1px solid var(--border); }
 .settings-diagnostics-body { padding: 14px 16px 16px; }
+.release-notes { margin: 12px 0; border: 1px solid var(--border); border-radius: 8px; }
+.release-notes > summary { padding: 9px 12px; cursor: pointer; font-size: 12.5px; }
+.release-notes > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; border-radius: 8px; }
+.release-notes-body { max-height: 300px; overflow-y: auto; overscroll-behavior: contain; overflow-wrap: anywhere; padding: 0 12px 12px; font-size: 12px; line-height: 1.6; }
+.release-notes-body h3 { font-size: 13px; margin: 12px 0 6px; }
+.release-notes-body ul { margin: 6px 0; padding-left: 20px; }
+.release-notes-body p { margin: 6px 0; }
+.release-notes-body pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11.5px; }
+.update-dialog { width: min(680px, calc(100vw - 32px)); display: flex; flex-direction: column; }
+.update-dialog > :not(.release-notes-body) { flex-shrink: 0; }
+.update-dialog .release-notes-body { flex: 0 1 auto; min-height: 60px; max-height: min(45vh, 360px); padding: 0 8px 12px 0; scrollbar-gutter: stable; }
+.update-dialog .update-actions { margin-top: 16px; }
+.update-dialog-backdrop { z-index: 110; }

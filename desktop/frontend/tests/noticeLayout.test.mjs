@@ -19,7 +19,10 @@ test('notification text is vertically centered with actions and safely wraps', (
 test('global notices share an overlay outside the page layout', () => {
   const stack = app.slice(app.indexOf('<div className="notification-stack">'), app.indexOf("{view === 'connect' && ("))
   assert.match(stack, /<CaptchaNotice/)
-  assert.match(stack, /<UpdateNotice/)
+  assert.doesNotMatch(stack, /<UpdateNotice/)
+  const updates=readFileSync(new URL('../src/components/UpdatePreferences.tsx', import.meta.url),'utf8')
+  assert.match(updates,/createPortal\(<UpdateDialog/)
+  assert.match(updates,/role="dialog" aria-modal="true"/)
   assert.match(stack, /\{connectError &&/)
   assert.match(app, /createPortal\(<div className="notification-stack">/)
   assert.match(stack, /document\.body/)

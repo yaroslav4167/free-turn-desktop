@@ -185,7 +185,6 @@ export default function App() {
       <main className="workspace">
         {createPortal(<div className="notification-stack">
           <CaptchaNotice url={status.captchaUrl || ''} connected={status.state === 'connected' && !pending} />
-          {view !== 'settings' && <UpdateNotice onOpen={() => changeView('settings')} />}
           {connectError && (
             <div className="app-error notice error" role="alert">
               <span>{connectError}</span>
@@ -274,6 +273,7 @@ export default function App() {
           </div>
         )}
       </main>
+      <UpdateNotice onOpen={() => changeView('settings')} blocked={showAdd || !!status.captchaUrl || pending} />
       {showAdd && (
         <AddServerModal
           onClose={() => setShowAdd(false)}

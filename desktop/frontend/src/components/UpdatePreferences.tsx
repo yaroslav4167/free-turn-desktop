@@ -1,7 +1,10 @@
 import {useEffect, useState} from 'react'
+import {createPortal} from 'react-dom'
 import {desktop, UpdateState} from '../desktop'
 import Icon from './Icon'
 import InfoTip from './InfoTip'
+import ReleaseNotes, {ReleaseNotesContent} from './ReleaseNotes'
+import {useDialogFocus} from '../useDialogFocus'
 import {currentLanguage, tr} from '../language'
 import {readDismissedUpdate, saveDismissedUpdate, updateNoticeId} from '../updateNotice'
 import {updateProgress, UpdateAction} from '../updateProgress'
@@ -31,29 +34,59 @@ function useUpdateState(interval: number, enabled = true) {
   return state
 }
 
-export function UpdateNotice({onOpen}: {onOpen: () => void}) {
+export function UpdateNotice({onOpen, blocked = false}: {onOpen: () => void; blocked?:boolean}) {
   const state = useUpdateState(10000)
   const [dismissed, setDismissed] = useState(() => readDismissedUpdate())
-  if (!state?.available || dismissed === updateNoticeId(state)) return null
-  const dismiss = () => {
-    const id = updateNoticeId(state)
+  if (blocked || !state?.available || dismissed === updateNoticeId(state)) return null
+  const dismiss = (id: string) => {
     setDismissed(id)
     saveDismissedUpdate(id)
   }
-  return (
-    <div className="notice info app-error" role="status">
-      <span>{state.currentKnown ? tr('Доступно обновление', 'Update available') : tr('Доступен стабильный релиз', 'Stable release available')} FreeTurn {state.latestVersion}.</span>
-      <div className="inline-actions update-notice-actions">
-        <button className="btn small" onClick={onOpen}>
-          {tr('Открыть настройки', 'Open settings')}
-        </button>
-        <button className="btn small ghost" onClick={dismiss}
-          aria-label={tr('Скрыть уведомление об обновлении', 'Dismiss update notification')} title={tr('Скрыть уведомление об этой версии', 'Dismiss notification for this version')}>
-          ×
-        </button>
+  return createPortal(<UpdateDialog key={updateNoticeId(state)} initial={state} onClose={dismiss} onOpen={onOpen} />, document.body)
+}
+
+function UpdateDialog({initial, onClose, onOpen}: {initial:UpdateState; onClose:(id:string)=>void; onOpen:()=>void}) {
+  const live = useUpdateState(500)
+  const state = live || initial
+  const close = () => onClose(updateNoticeId(state))
+  const dialog = useDialogFocus(close)
+  const [canInstall, setCanInstall] = useState(false)
+  const [pending, setPending] = useState<UpdateAction | null>(null)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let active = true
+    desktop().DesktopSettings().then(settings=>{if(active)setCanInstall(settings.canInstallUpdates)}).catch(()=>{})
+    return ()=>{active=false}
+  }, [])
+  const run = async (operation:UpdateAction, action:()=>Promise<void>) => {
+    setPending(operation); setError('')
+    try { await action() } catch(e) { setError(String(e)) } finally { setPending(null) }
+  }
+  const busy = pending !== null || !!state.busy
+  const progress = updateProgress(state, pending)
+  return <div className="modal-backdrop update-dialog-backdrop" onClick={close}>
+    <div ref={dialog} tabIndex={-1} className="modal update-dialog" role="dialog" aria-modal="true" aria-labelledby="update-dialog-title" onClick={e=>e.stopPropagation()}>
+      <div className="modal-heading">
+        <h2 id="update-dialog-title">{state.currentKnown ? tr('Доступно обновление', 'Update available') : tr('Доступен стабильный релиз', 'Stable release available')} FreeTurn {state.latestVersion}</h2>
+        <button className="btn ghost modal-close" aria-label={tr('Скрыть уведомление об обновлении', 'Dismiss update notification')} onClick={close}>×</button>
+      </div>
+      {state.releaseNotes?.trim() ? <ReleaseNotesContent text={state.releaseNotes} /> : <p className="settings-note">{tr('Описание изменений не опубликовано.', 'Release notes have not been published.')}</p>}
+      {(error || (!busy && state.error)) && <div className="notice error" role="alert">{error || state.error}</div>}
+      {progress && <section className="update-task" aria-busy="true">
+        <strong role="status">{progress.title}</strong>
+        <progress className="update-progress" aria-label={progress.title} max={100} value={progress.percent ?? undefined} />
+        <p className="settings-note">{progress.transfer} {progress.speed} {progress.eta}</p>
+        <p className="settings-note">{progress.detail}</p>
+      </section>}
+      {state.downloadedPath && !busy && <p className="notice info" role="status">{tr('Архив проверен по SHA-256 и сохранён:', 'Archive verified with SHA-256 and saved:')} <span className="mono update-path">{state.downloadedPath}</span></p>}
+      <div className="inline-actions update-actions">
+        {canInstall && <button className="btn primary" disabled={busy} onClick={()=>run('installing',()=>desktop().InstallUpdate())}>{tr('Скачать и установить', 'Download and install')}</button>}
+        <button className={'btn'+(canInstall?'':' primary')} disabled={busy} onClick={()=>run('downloading',()=>desktop().DownloadUpdate())}><Icon name="download" size={17} /> {tr('Скачать {version}', {version:state.latestVersion})}</button>
+        <button className="btn" onClick={()=>{close();onOpen()}}>{tr('Открыть настройки', 'Open settings')}</button>
+        <button className="btn ghost" onClick={close}>{tr('Позже', 'Later')}</button>
       </div>
     </div>
-  )
+  </div>
 }
 
 export default function UpdatePreferences({active, autoCheck, onAutoCheck, disabled, canInstall}: {
@@ -94,6 +127,7 @@ export default function UpdatePreferences({active, autoCheck, onAutoCheck, disab
         </InfoTip>
         {state?.checkedAt && <span>{state.available ? tr('Доступна {version}', {version: state.latestVersion}) : tr('Обновлений нет', 'No updates')}</span>}
       </div>
+      {state?.latestVersion && state.releaseNotes?.trim() && <ReleaseNotes key={state.latestVersion} version={state.latestVersion} text={state.releaseNotes} />}
       <div className="preference-row">
         <div className="update-summary">
           <label htmlFor="auto-check-updates"><strong>{tr('Автопроверка', 'Automatic checks')}</strong></label>

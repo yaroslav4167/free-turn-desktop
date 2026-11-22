@@ -20,6 +20,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 const maxArchive = 512 << 20
@@ -29,6 +30,7 @@ type State struct {
 	CurrentVersion      string `json:"currentVersion"`
 	CurrentKnown        bool   `json:"currentKnown"`
 	LatestVersion       string `json:"latestVersion"`
+	ReleaseNotes        string `json:"releaseNotes"`
 	Available           bool   `json:"available"`
 	AssetName           string `json:"assetName"`
 	ReleaseURL          string `json:"releaseUrl"`
@@ -52,6 +54,7 @@ type asset struct {
 }
 type release struct {
 	Tag        string  `json:"tag_name"`
+	Body       string  `json:"body"`
 	Draft      bool    `json:"draft"`
 	Prerelease bool    `json:"prerelease"`
 	Assets     []asset `json:"assets"`
@@ -202,10 +205,24 @@ func (m *Manager) Check(ctx context.Context) (err error) {
 		m.state.DownloadedPath = ""
 	}
 	m.state.LatestVersion, m.state.AssetName = latest.Tag, archive.Name
+	m.state.ReleaseNotes = boundedReleaseNotes(latest.Body)
 	m.state.ReleaseURL = "https://github.com/" + m.repository + "/releases/tag/" + url.PathEscape(latest.Tag)
 	m.state.Available = !m.state.CurrentKnown || newer(latest.Tag, m.state.CurrentVersion)
 	m.state.CheckedAt = time.Now().UTC().Format(time.RFC3339)
 	return nil
+}
+
+func boundedReleaseNotes(body string) string {
+	const limit = 64 << 10
+	notes := strings.TrimSpace(body)
+	if len(notes) <= limit {
+		return notes
+	}
+	notes = notes[:limit]
+	for !utf8.ValidString(notes) {
+		notes = notes[:len(notes)-1]
+	}
+	return notes + "\n…"
 }
 
 // Download takes only a destination and the previously checked tag, never a URL

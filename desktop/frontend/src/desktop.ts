@@ -52,6 +52,7 @@ export interface UpdateState {
   currentVersion: string
   currentKnown: boolean
   latestVersion: string
+  releaseNotes?: string
   available: boolean
   assetName: string
   releaseUrl: string

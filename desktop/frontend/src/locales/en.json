@@ -2,6 +2,10 @@
   "code": "en",
   "name": "English",
   "messages": {
+    "Описание изменений не опубликовано.": "Release notes have not been published.",
+    "Позже": "Later",
+    "Что нового в {version}": "What’s new in {version}",
+    "Описание релиза": "Release notes",
     "Не удалось подтвердить экспорт профиля": "Could not confirm profile export",
     "Профили восстановлены из резервной копии.": "Profiles restored from backup.",
     "Проверка профиля…": "Validating profile…",
