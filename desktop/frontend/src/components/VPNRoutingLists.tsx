@@ -24,7 +24,7 @@ export default function VPNRoutingLists({server, disabled, onChange}: {
       </div>
       <div className="preference-row local-network-routing">
         <FieldLabel htmlFor="bypass-local-networks" label={tr('Локальная сеть в обход VPN', 'Bypass VPN for local networks')}
-          hint={tr('По умолчанию включено: локальные и частные IPv4/IPv6-адреса идут в обход VPN. DNS профиля — исключение и остаётся через VPN. Для внутренних доменов нужен корпоративный DNS; публичные подсети за шлюзом добавьте в чёрный список. Если локальные адреса нужны через VPN, выключите опцию. Сохраните профиль и переподключитесь.', 'Enabled by default: local and private IPv4/IPv6 addresses bypass VPN. Profile DNS is an exception and remains reachable through VPN. Internal domain names need corporate DNS; add public subnets behind a gateway to a blacklist. Disable this option if local addresses must use VPN. Save and reconnect to apply.')} />
+          hint={tr('Локальные и частные сети — напрямую, кроме VPN-DNS.', 'Local and private networks bypass VPN, except profile DNS.')} />
         <input id="bypass-local-networks" type="checkbox" role="switch" checked={bypassLocalNetworks(server)} disabled={disabled} onChange={e=>onChange(withLocalNetworkBypass(server,e.target.checked))} />
       </div>
       {lists.map((list, index) => (

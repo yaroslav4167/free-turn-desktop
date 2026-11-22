@@ -4,7 +4,7 @@
   "messages": {
     "Локальная сеть в обход VPN": "Bypass VPN for local networks",
     "Локальная сеть — напрямую": "Local networks bypass VPN",
-    "По умолчанию включено: локальные и частные IPv4/IPv6-адреса идут в обход VPN. DNS профиля — исключение и остаётся через VPN. Для внутренних доменов нужен корпоративный DNS; публичные подсети за шлюзом добавьте в чёрный список. Если локальные адреса нужны через VPN, выключите опцию. Сохраните профиль и переподключитесь.": "Enabled by default: local and private IPv4/IPv6 addresses bypass VPN. Profile DNS is an exception and remains reachable through VPN. Internal domain names need corporate DNS; add public subnets behind a gateway to a blacklist. Disable this option if local addresses must use VPN. Save and reconnect to apply.",
+    "Локальные и частные сети — напрямую, кроме VPN-DNS.": "Local and private networks bypass VPN, except profile DNS.",
     "Обновить до {version}": "Update to {version}",
     "Скачать архив": "Download archive",
     "История обновлений": "Update history",
