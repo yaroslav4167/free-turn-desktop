@@ -2,10 +2,36 @@ package main
 
 import (
 	"errors"
+	"strings"
+	"unicode"
 
 	"github.com/samosvalishe/free-turn-proxy/desktop/locale"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+// Use a portable basename, never a path or an endpoint. Leave room for the
+// extension under common filesystem limits, including multibyte Cyrillic names.
+func profileExportFilename(name string) string {
+	var out strings.Builder
+	for _, r := range strings.TrimSpace(name) {
+		if unicode.IsControl(r) || strings.ContainsRune(`<>:"/\|?*`, r) {
+			r = '-'
+		}
+		if out.Len()+len(string(r)) > 180 {
+			break
+		}
+		out.WriteRune(r)
+	}
+	base := strings.Trim(out.String(), " .-")
+	if strings.HasSuffix(strings.ToLower(base), ".json") {
+		base = strings.TrimRight(base[:len(base)-5], " .")
+	}
+	if base == "" {
+		return "FreeTurn-profile.json"
+	}
+	// The fixed prefix also prevents reserved Windows device basenames.
+	return "FreeTurn-profile-" + base + ".json"
+}
 
 func profileExportConfirmation(platform string) (wailsruntime.MessageDialogOptions, string) {
 	yes, no := locale.Text("Экспортировать", "Export"), locale.Text("Отмена", "Cancel")

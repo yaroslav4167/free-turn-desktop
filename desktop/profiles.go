@@ -17,11 +17,13 @@ func (a *App) ExportProfile(id string) error {
 	if err != nil {
 		return err
 	}
+	profile, _ := a.store.Get(id)
+	filename := profileExportFilename(profile.Name)
 	options, affirmative := profileExportConfirmation(runtime.GOOS)
 	return exportProfileFile(data, affirmative,
 		func() (string, error) { return wailsruntime.MessageDialog(a.ctx, options) },
 		func() (string, error) {
-			return wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{Title: locale.Text("Экспорт профиля", "Export profile"), DefaultFilename: "FreeTurn-profile.json", CanCreateDirectories: true, Filters: []wailsruntime.FileFilter{{DisplayName: "FreeTurn JSON", Pattern: "*.json"}}})
+			return wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{Title: locale.Text("Экспорт профиля", "Export profile"), DefaultFilename: filename, CanCreateDirectories: true, Filters: []wailsruntime.FileFilter{{DisplayName: "FreeTurn JSON", Pattern: "*.json"}}})
 		},
 		writePrivateFile)
 }

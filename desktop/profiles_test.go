@@ -2,11 +2,37 @@ package main
 
 import (
 	"errors"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/samosvalishe/free-turn-proxy/desktop/locale"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+func TestProfileExportFilenameUsesServerNameSafely(t *testing.T) {
+	for _, test := range []struct{ name, want string }{
+		{"Германия", "FreeTurn-profile-Германия.json"},
+		{"  My server  ", "FreeTurn-profile-My server.json"},
+		{"London.json", "FreeTurn-profile-London.json"},
+		{"London.JSON", "FreeTurn-profile-London.json"},
+		{"EU / Berlin: 1", "FreeTurn-profile-EU - Berlin- 1.json"},
+		{"../../server", "FreeTurn-profile-server.json"},
+		{"CON", "FreeTurn-profile-CON.json"},
+		{"LPT1.notes", "FreeTurn-profile-LPT1.notes.json"},
+		{"", "FreeTurn-profile.json"},
+		{"...", "FreeTurn-profile.json"},
+		{"bad\nname", "FreeTurn-profile-bad-name.json"},
+	} {
+		if got := profileExportFilename(test.name); got != test.want {
+			t.Fatalf("%q: got %q, want %q", test.name, got, test.want)
+		}
+	}
+	long := profileExportFilename(strings.Repeat("Я", 200))
+	if len(long) > 255 || !utf8.ValidString(long) || !strings.HasSuffix(long, ".json") {
+		t.Fatal("invalid long Unicode filename")
+	}
+}
 
 func TestSystemProfileConfirmationOpensSaveChooser(t *testing.T) {
 	defer locale.Set("en")
