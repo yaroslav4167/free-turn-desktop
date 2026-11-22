@@ -63,7 +63,7 @@ WireGuard и AmneziaWG через TURN — с понятным интерфей�
 [Импорт на вкладке серверов](docs/screenshots/profile-transfer.png) — такой же
 предпросмотр, с кнопкой справа от «Добавить сервер».
 
-В текущей ветке `main` настройки дополнительно уплотнены: профиль автоподключения
+Начиная с v3.0.8 настройки дополнительно уплотнены: профиль автоподключения
 и переключатель находятся в одной строке, а диагностика и восстановление
 открываются кнопкой-иконкой слева от «Выйти из приложения».
 Рядом с «Проверить обновления» есть кнопка «История обновлений». Она открывает
@@ -82,7 +82,7 @@ WireGuard и AmneziaWG через TURN — с понятным интерфей�
 [История обновлений](docs/screenshots/release-history.png) — общий список версий
 и изменений с одной прокруткой, также на демонстрационных данных.
 [Компактные настройки](docs/screenshots/settings-compact.png) — браузерный
-предпросмотр с синтетическим профилем; эти изменения пока не входят в v3.0.7.
+предпросмотр с синтетическим профилем.
 [Попап диагностики и восстановления](docs/screenshots/diagnostics-dialog.png) —
 такой же предпросмотр, без обращения к реальным профилям или VPN.
 
@@ -217,20 +217,20 @@ v3.0.6). Если окно недоступно, используется вне
 **Linux:** установите пакеты разработки GTK3 и WebKit2GTK 4.1, затем выполните:
 
 ```sh
-VERSION=v3.0.7 sh packaging/linux/build-desktop.sh
+VERSION=v3.0.8 sh packaging/linux/build-desktop.sh
 ```
 
 **Windows:** установите нативные зависимости Wails и запустите в PowerShell 7:
 
 ```powershell
-$env:RELEASE_TAG = 'v3.0.7'
+$env:RELEASE_TAG = 'v3.0.8'
 ./packaging/windows/build-desktop.ps1
 ```
 
 **macOS:** установите Xcode Command Line Tools, затем выполните:
 
 ```sh
-RELEASE_TAG=v3.0.7 sh packaging/macos/build-desktop.sh
+RELEASE_TAG=v3.0.8 sh packaging/macos/build-desktop.sh
 ```
 
 `UPDATE_REPOSITORY` по умолчанию указывает на `yaroslav4167/free-turn-desktop`.
