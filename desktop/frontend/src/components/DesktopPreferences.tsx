@@ -7,6 +7,7 @@ import {availableLanguages, configureLanguage, tr} from '../language'
 import FieldLabel from './FieldLabel'
 import {configureTheme, subscribeTheme, themeSnapshot} from '../theme'
 import ThemePicker from './ThemePicker'
+import {resolveStartupProfile} from '../autoConnectSettings'
 
 function PreferenceSwitch({id, title, hint, checked, disabled, onChange}: {
   id:string; title:string; hint:string; checked:boolean; disabled:boolean; onChange:(value:boolean)=>void
@@ -17,11 +18,14 @@ function PreferenceSwitch({id, title, hint, checked, disabled, onChange}: {
   </div>
 }
 
-export default function DesktopPreferences({version, active, servers}: {version: string; active: boolean; servers: backend.Server[]}) {
+export default function DesktopPreferences({version, active, servers, selectedServerId}: {version: string; active: boolean; servers: backend.Server[]; selectedServerId?: string}) {
   const [settings, setSettings] = useState<DesktopSettings | null>(null)
   const theme = useSyncExternalStore(subscribeTheme, themeSnapshot)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const startupProfileId=resolveStartupProfile(servers,settings?.autoConnectServerId||'',selectedServerId)
+  const savedStartupAvailable=!!settings?.autoConnectServerId&&servers.some(server=>server.id===settings.autoConnectServerId)
+  const missingStartupProfile=!!settings&&!!(settings.autoConnect||settings.autoConnectServerId)&&!savedStartupAvailable
   const refresh = () => desktop().DesktopSettings().then(setSettings)
   useEffect(() => { refresh().catch(e=>setError(String(e))) }, [])
 
@@ -66,15 +70,15 @@ export default function DesktopPreferences({version, active, servers}: {version:
           checked={settings.autostart} disabled={busy||!settings.supported} onChange={value=>run(()=>desktop().SetAutostart(value))} />
         <PreferenceSwitch id="connect-at-startup" title={tr('Подключаться при запуске', 'Connect on startup')}
           hint={tr('Одна попытка при запуске приложения. Проверка VK может потребовать действий пользователя; при ошибке подключитесь вручную.', 'One attempt when the app starts. VK verification may require user action; reconnect manually after a failure.')}
-          checked={settings.autoConnect} disabled={busy||(!servers.length&&!settings.autoConnect)}
-          onChange={value=>run(()=>desktop().SetAutoConnect(value,settings.autoConnectServerId||servers[0]?.id||''))} />
-        {settings.autoConnect && <div className="field autoconnect-profile">
+          checked={settings.autoConnect} disabled={busy||(!startupProfileId&&!settings.autoConnect)}
+          onChange={value=>run(()=>desktop().SetAutoConnect(value,value?startupProfileId:settings.autoConnectServerId))} />
+        {(settings.autoConnect || servers.length>0) && <div className="field autoconnect-profile">
           <FieldLabel htmlFor="startup-profile" label={tr('Профиль автоподключения', 'Startup connection profile')} hint={tr('Используется только при запуске приложения. Выключение автоподключения не удаляет выбранный профиль.', 'Used only at app startup. Disabling auto-connect does not remove the selected profile.')} />
-          <select id="startup-profile" value={settings.autoConnectServerId} disabled={busy||!servers.length} onChange={e=>run(()=>desktop().SetAutoConnect(settings.autoConnect,e.target.value))}>
+          <select id="startup-profile" value={settings.autoConnect&&missingStartupProfile?'':startupProfileId} disabled={busy||!startupProfileId} onChange={e=>run(()=>desktop().SetAutoConnect(settings.autoConnect,e.target.value))}>
             <option value="" disabled>{tr('Выберите профиль', 'Select a profile')}</option>
-            {settings.autoConnectServerId&&!servers.some(s=>s.id===settings.autoConnectServerId)&&<option value={settings.autoConnectServerId} disabled>{tr('Профиль удалён — выберите другой', 'Profile deleted — select another')}</option>}
-            {servers.map(s=><option key={s.id} value={s.id}>{s.name||s.id}</option>)}
+            {servers.filter(s=>s.id.trim()).map(s=><option key={s.id} value={s.id}>{s.name||s.peer||s.id}</option>)}
           </select>
+          {missingStartupProfile&&<p className="settings-note" role="status">{tr('Сохранённый профиль недоступен. Проверьте профиль автоподключения.', 'The saved profile is unavailable. Check the startup connection profile.')}</p>}
         </div>}
         {settings.autoConnectError&&<div className="notice error" role="alert">{settings.autoConnectError}</div>}
         <PreferenceSwitch id="close-to-tray" title={tr('Сворачивать в трей при закрытии', 'Minimize to tray on close')}

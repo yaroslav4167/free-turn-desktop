@@ -2,6 +2,7 @@
   "code": "en",
   "name": "English",
   "messages": {
+    "Сохранённый профиль недоступен. Проверьте профиль автоподключения.": "The saved profile is unavailable. Check the startup connection profile.",
     "Пропускать авто-решение captcha": "Skip automatic captcha solving",
     "По умолчанию клиент сначала пробует авто-решение и открывает окно только при необходимости ручной проверки. Включение этого параметра пропускает авто-попытку. Камера и микрофон для проверки не нужны; работающие потоки не перезапускаются.": "By default, the client tries automatic solving first and opens the window only when manual verification is needed. Enabling this option skips the automatic attempt. Verification needs no camera or microphone and does not restart working streams.",
     "Для подключения требуется проверка VK.": "VK verification is required to connect.",

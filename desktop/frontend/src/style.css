@@ -1004,8 +1004,8 @@ button:disabled {
 .autoconnect-profile {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 14px 0;
+  gap: 4px;
+  margin: 8px 0;
 }
 .navigation nav {
   display: flex;

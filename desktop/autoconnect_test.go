@@ -53,11 +53,18 @@ func TestAutoConnectPreferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := &App{store: store, preferences: integration.Preferences{CloseToTray: true}}
+	a.autoConnectError = "previous startup used a deleted profile"
 	if err := a.SetAutoConnect(true, "missing"); err == nil {
 		t.Fatal("accepted missing profile")
 	}
+	if a.autoConnectError == "" {
+		t.Fatal("invalid preference hid a startup failure")
+	}
 	if err := a.SetAutoConnect(true, srv.ID); err != nil {
 		t.Fatal(err)
+	}
+	if a.autoConnectError != "" {
+		t.Fatal("fixed startup profile retained a stale error")
 	}
 	if err := a.SetCloseToTray(false); err != nil {
 		t.Fatal(err)

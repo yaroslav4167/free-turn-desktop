@@ -171,6 +171,7 @@ func (a *App) SetAutoConnect(enabled bool, serverID string) error {
 		return err
 	}
 	a.preferences = prefs
+	a.autoConnectError = ""
 	return nil
 }
 func (a *App) InstallDesktop() (string, error)        { return integration.Install() }

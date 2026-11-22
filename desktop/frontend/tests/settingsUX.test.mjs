@@ -74,7 +74,7 @@ test('form height is unified without resizing switches, multiline editors or the
   assert.match(css,/height: var\(--settings-control-height\)/)
   assert.match(css,/\.compact-loader \.connection-loader[^}]*opacity: 1/)
   const prefs=read('components/DesktopPreferences.tsx')
-  assert.match(prefs,/settings.autoConnect &&/)
+  assert.match(prefs,/\(settings.autoConnect \|\| servers.length>0\) &&/)
   assert.doesNotMatch(prefs,/setSettings\(null\)/)
 })
 

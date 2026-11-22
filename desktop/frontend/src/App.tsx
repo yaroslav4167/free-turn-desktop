@@ -195,7 +195,7 @@ export default function App() {
             onEdit={() => setView('servers')}
           />
         )}
-        {settingsOpened && <DesktopPreferences version={version} active={view === 'settings'} servers={servers} />}
+        {settingsOpened && <DesktopPreferences version={version} active={view === 'settings'} servers={servers} selectedServerId={selectedId||undefined} />}
         {view === 'logs' && (
           <section className="logs-page">
             <header className="page-heading">
