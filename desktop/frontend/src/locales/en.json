@@ -2,6 +2,7 @@
   "code": "en",
   "name": "English",
   "messages": {
+    "Не удалось подтвердить экспорт профиля": "Could not confirm profile export",
     "Профили восстановлены из резервной копии.": "Profiles restored from backup.",
     "Проверка профиля…": "Validating profile…",
     "Разрешение адресов DNS…": "Resolving DNS addresses…",

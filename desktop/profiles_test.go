@@ -8,27 +8,29 @@ import (
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-func TestWindowsProfileConfirmationOpensSaveChooser(t *testing.T) {
+func TestSystemProfileConfirmationOpensSaveChooser(t *testing.T) {
 	defer locale.Set("en")
-	for _, language := range []string{"ru", "en"} {
-		locale.Set(language)
-		options, affirmative := profileExportConfirmation("windows")
-		if options.Type != wailsruntime.QuestionDialog || options.DefaultButton != "No" || options.CancelButton != "No" || affirmative != "Yes" {
-			t.Fatal("Windows confirmation does not match Wails MessageBox ABI")
-		}
-		chosen, written := false, false
-		err := exportProfileFile([]byte("synthetic-profile"), affirmative,
-			func() (string, error) { return "Yes", nil },
-			func() (string, error) { chosen = true; return "chosen-profile.json", nil },
-			func(path string, data []byte) error {
-				written = true
-				if path != "chosen-profile.json" || string(data) != "synthetic-profile" {
-					t.Fatal("selection ignored")
-				}
-				return nil
-			})
-		if err != nil || !chosen || !written {
-			t.Fatalf("affirmative Windows response did not reach save chooser: %v", err)
+	for _, platform := range []string{"windows", "linux"} {
+		for _, language := range []string{"ru", "en"} {
+			locale.Set(language)
+			options, affirmative := profileExportConfirmation(platform)
+			if options.Type != wailsruntime.QuestionDialog || options.DefaultButton != "No" || options.CancelButton != "No" || affirmative != "Yes" {
+				t.Fatalf("%s/%s: confirmation does not match Wails native response", platform, language)
+			}
+			chosen, written := false, false
+			err := exportProfileFile([]byte("synthetic-profile"), affirmative,
+				func() (string, error) { return "Yes", nil },
+				func() (string, error) { chosen = true; return "chosen-profile.json", nil },
+				func(path string, data []byte) error {
+					written = true
+					if path != "chosen-profile.json" || string(data) != "synthetic-profile" {
+						t.Fatal("selection ignored")
+					}
+					return nil
+				})
+			if err != nil || !chosen || !written {
+				t.Fatalf("%s/%s: affirmative response did not reach save chooser: %v", platform, language, err)
+			}
 		}
 	}
 }
@@ -39,9 +41,12 @@ func TestProfileExportNeverWritesOnCancellationOrDialogFailure(t *testing.T) {
 		name, answer, path    string
 		confirmErr, chooseErr error
 		wantChooser           bool
+		wantError             bool
 	}{
 		{name: "declined", answer: "No"},
-		{name: "old OK-only response", answer: "Ok"},
+		{name: "old OK-only response", answer: "Ok", wantError: true},
+		{name: "old GTK OK-only response", answer: "OK", wantError: true},
+		{name: "GTK dialog closed", answer: ""},
 		{name: "confirmation error", confirmErr: failure},
 		{name: "save cancelled", answer: "Yes", wantChooser: true},
 		{name: "save error", answer: "Yes", chooseErr: failure, wantChooser: true},
@@ -52,6 +57,9 @@ func TestProfileExportNeverWritesOnCancellationOrDialogFailure(t *testing.T) {
 			if chosen != test.wantChooser {
 				t.Fatal("unexpected save chooser invocation")
 			}
+			if test.wantError && err == nil {
+				t.Fatal("unexpected native response silently cancelled export")
+			}
 			if (test.confirmErr != nil || test.chooseErr != nil) && !errors.Is(err, failure) {
 				t.Fatal("dialog error swallowed")
 			}
@@ -59,13 +67,11 @@ func TestProfileExportNeverWritesOnCancellationOrDialogFailure(t *testing.T) {
 	}
 }
 
-func TestNonWindowsExportUsesLocalizedConfirmation(t *testing.T) {
+func TestMacExportUsesLocalizedConfirmation(t *testing.T) {
 	defer locale.Set("en")
 	locale.Set("ru")
-	for _, platform := range []string{"linux", "darwin"} {
-		options, affirmative := profileExportConfirmation(platform)
-		if affirmative != "Экспортировать" || options.CancelButton != "Отмена" {
-			t.Fatal("localized dialog labels lost")
-		}
+	options, affirmative := profileExportConfirmation("darwin")
+	if affirmative != "Экспортировать" || options.CancelButton != "Отмена" {
+		t.Fatal("localized dialog labels lost")
 	}
 }
