@@ -48,6 +48,9 @@ func Connect(configJSON, wgConfigText string, mtu int, exclusions ...string) err
 	return ConnectWithRoutes(configJSON, wgConfigText, mtu, "", exclusions...)
 }
 func ConnectWithRoutes(configJSON, wgConfigText string, mtu int, routes string, exclusions ...string) (err error) {
+	return ConnectWithProgress(configJSON, wgConfigText, mtu, routes, nil, exclusions...)
+}
+func ConnectWithProgress(configJSON, wgConfigText string, mtu int, routes string, progress func(string), exclusions ...string) (err error) {
 	mu.Lock()
 	if active != nil || connecting {
 		mu.Unlock()
@@ -69,6 +72,7 @@ func ConnectWithRoutes(configJSON, wgConfigText string, mtu int, routes string, 
 	if routes != "" {
 		params.AllowedIPs = routes
 	}
+	reportProgress(progress, "helper")
 	client, fd, dev4, dev6, err := startHelperContext(ctx, params)
 	if err != nil {
 		return err
@@ -107,12 +111,14 @@ func ConnectWithRoutes(configJSON, wgConfigText string, mtu int, routes string, 
 	if err != nil {
 		return fmt.Errorf("open macOS utun: %w", err)
 	}
+	reportProgress(progress, "relay")
 	if err = mobile.StartTunnelDevice(configJSON, dev, nil); err != nil {
 		return err
 	}
 	if err = waitConnected(connectTimeout); err != nil {
 		return err
 	}
+	reportProgress(progress, "routes")
 	return client.call(helperRequest{Op: "routes", Params: params})
 }
 func watchHelper(client *helperClient) {

@@ -14,11 +14,12 @@ interface Props {
 
 export default function LogConsole({lines, onClear}: Props) {
   const bodyRef = useRef<HTMLDivElement>(null)
+  const followTail = useRef(true)
 
   useEffect(() => {
     const el = bodyRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [lines.length])
+    if (el && followTail.current) el.scrollTop = el.scrollHeight
+  }, [lines])
 
   return (
     <div className="log-console">
@@ -28,7 +29,10 @@ export default function LogConsole({lines, onClear}: Props) {
           {tr('Очистить', 'Clear')}
         </button>
       </div>
-      <div className="log-lines" ref={bodyRef}>
+      <div className="log-lines" ref={bodyRef} onScroll={e => {
+        const el = e.currentTarget
+        followTail.current = el.scrollHeight - el.scrollTop - el.clientHeight < 32
+      }}>
         {lines.map((l, i) => (
           <div key={i} className={'log-line' + (l.level === 'error' ? ' error' : l.level === 'warn' ? ' warn' : '')}>
             <span className="ts">{new Date(l.atMs).toLocaleTimeString(currentLanguage())}</span>

@@ -27,5 +27,5 @@ test('routing explanations are shown only in hover popups', () => {
 test('invalid DNS or routing lists are rejected before disconnecting the old VPN', () => {
   const engine = read('desktop/backend/engine.go')
   assert.ok(engine.indexOf('routing.Build(') < engine.indexOf('e.forceStop()'))
-  assert.match(engine, /ConnectWithRoutes\(cfg, srv\.WgClientConf, DefaultTunnelMTU, routeOverride/)
+  assert.match(engine, /ConnectWithProgress\(cfg, srv\.WgClientConf, DefaultTunnelMTU, routeOverride/)
 })

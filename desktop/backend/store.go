@@ -97,9 +97,10 @@ func DefaultServer() Server {
 }
 
 type Store struct {
-	mu      sync.Mutex
-	path    string
-	servers []Server
+	mu             sync.Mutex
+	path           string
+	servers        []Server
+	recoveryNotice string
 }
 
 func NewStore() (*Store, error) {
@@ -126,6 +127,9 @@ func (s *Store) StateDir() string {
 func (s *Store) load() error {
 	data, err := os.ReadFile(s.path)
 	if os.IsNotExist(err) {
+		if _, backupErr := os.Stat(s.path + ".bak"); backupErr == nil {
+			return s.recoverProfiles(nil)
+		}
 		s.servers = []Server{}
 		return nil
 	}
@@ -134,7 +138,10 @@ func (s *Store) load() error {
 	}
 	var list []Server
 	if err := json.Unmarshal(data, &list); err != nil {
-		return fmt.Errorf("parse servers file: %w", err)
+		return s.recoverProfiles(data)
+	}
+	if list == nil {
+		return s.recoverProfiles(data)
 	}
 	for i := range list {
 		normalizeServer(&list[i])
@@ -179,11 +186,22 @@ func (s *Store) persist() error {
 	if err != nil {
 		return err
 	}
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
-		return err
+	// Never replace the last good backup with malformed input.
+	previous, readErr := os.ReadFile(s.path)
+	if readErr != nil && !os.IsNotExist(readErr) {
+		return readErr
 	}
-	return os.Rename(tmp, s.path)
+	var previousProfiles []Server
+	if len(previous) > 0 && json.Unmarshal(previous, &previousProfiles) == nil && previousProfiles != nil {
+		if err := atomicProfileWrite(s.path+".bak", previous); err != nil {
+			return err
+		}
+	} else if _, backupErr := os.Stat(s.path + ".bak"); os.IsNotExist(backupErr) {
+		if err := atomicProfileWrite(s.path+".bak", data); err != nil {
+			return err
+		}
+	}
+	return atomicProfileWrite(s.path, data)
 }
 
 func (s *Store) List() []Server {
@@ -192,7 +210,7 @@ func (s *Store) List() []Server {
 	out := make([]Server, len(s.servers))
 	copy(out, s.servers)
 	for i := range out {
-		out[i].RoutingLists = routing.Clone(out[i].RoutingLists)
+		out[i] = cloneServer(out[i])
 	}
 	return out
 }
@@ -202,8 +220,7 @@ func (s *Store) Get(id string) (Server, bool) {
 	defer s.mu.Unlock()
 	for _, srv := range s.servers {
 		if srv.ID == id {
-			srv.RoutingLists = routing.Clone(srv.RoutingLists)
-			return srv, true
+			return cloneServer(srv), true
 		}
 	}
 	return Server{}, false
@@ -211,6 +228,7 @@ func (s *Store) Get(id string) (Server, bool) {
 
 // Save inserts or updates a profile by ID; a blank ID is treated as a new profile.
 func (s *Store) Save(srv Server) (Server, error) {
+	srv = cloneServer(srv)
 	lists, err := routing.Normalize(srv.RoutingLists)
 	if err != nil {
 		return Server{}, err
@@ -219,6 +237,8 @@ func (s *Store) Save(srv Server) (Server, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	previous := s.servers
+	s.servers = append([]Server(nil), previous...)
 	normalizeServer(&srv)
 	if srv.ID == "" {
 		srv.ID = generateHex(8)
@@ -240,23 +260,123 @@ func (s *Store) Save(srv Server) (Server, error) {
 		}
 	}
 	if err := s.persist(); err != nil {
+		s.servers = previous
 		return Server{}, err
 	}
-	srv.RoutingLists = routing.Clone(srv.RoutingLists)
-	return srv, nil
+	return cloneServer(srv), nil
+}
+
+func cloneServer(s Server) Server {
+	s.VKLinks = append([]string{}, s.VKLinks...)
+	s.DNSServers = append([]string{}, s.DNSServers...)
+	s.RoutingLists = routing.Clone(s.RoutingLists)
+	if s.SSH != nil {
+		ssh := *s.SSH
+		s.SSH = &ssh
+	}
+	return s
 }
 
 func (s *Store) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out := s.servers[:0]
+	previous := s.servers
+	out := make([]Server, 0, len(previous))
 	for _, srv := range s.servers {
 		if srv.ID != id {
 			out = append(out, srv)
 		}
 	}
 	s.servers = out
-	return s.persist()
+	if err := s.persist(); err != nil {
+		s.servers = previous
+		return err
+	}
+	return nil
+}
+
+func atomicProfileWrite(path string, data []byte) error {
+	f, err := os.CreateTemp(filepath.Dir(path), ".profiles-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(f.Name())
+	if _, err = f.Write(data); err == nil {
+		err = f.Sync()
+	}
+	closeErr := f.Close()
+	if err != nil {
+		return err
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	return os.Rename(f.Name(), path)
+}
+
+// Preserve damaged bytes before recovering; never silently discard user data.
+func (s *Store) recoverProfiles(damaged []byte) error {
+	backup, err := os.ReadFile(s.path + ".bak")
+	var profiles []Server
+	valid := err == nil && json.Unmarshal(backup, &profiles) == nil && profiles != nil
+	if damaged != nil {
+		archive, err := os.CreateTemp(filepath.Dir(s.path), "servers-damaged-*.json")
+		if err != nil {
+			return err
+		}
+		_, writeErr := archive.Write(damaged)
+		closeErr := archive.Close()
+		if writeErr != nil {
+			return writeErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+	}
+	if valid {
+		if err := atomicProfileWrite(s.path, backup); err != nil {
+			return err
+		}
+		s.servers = profiles
+		for i := range s.servers {
+			normalizeServer(&s.servers[i])
+		}
+		s.recoveryNotice = "recovered"
+	} else {
+		// Leave a corrupt primary in place until an explicit save/import.
+		s.servers = []Server{}
+		s.recoveryNotice = "damaged"
+	}
+	return nil
+}
+
+func (s *Store) RecoveryNotice() string { s.mu.Lock(); defer s.mu.Unlock(); return s.recoveryNotice }
+
+func (s *Store) RestoreBackup() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	data, err := os.ReadFile(s.path + ".bak")
+	if err != nil {
+		return err
+	}
+	var profiles []Server
+	if err := json.Unmarshal(data, &profiles); err != nil {
+		return err
+	}
+	if profiles == nil {
+		return fmt.Errorf("invalid profile backup")
+	}
+	for i := range profiles {
+		normalizeServer(&profiles[i])
+	}
+	previous := s.servers
+	s.servers = profiles
+	if err := atomicProfileWrite(s.path, data); err != nil {
+		s.servers = previous
+		return err
+	}
+	s.recoveryNotice = "restored"
+	return nil
 }
 
 // GenerateClientID returns a fresh 32-hex-char client ID (16 random bytes),

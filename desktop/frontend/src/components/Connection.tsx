@@ -9,6 +9,9 @@ import ConnectionLoader from './ConnectionLoader'
 import {tr} from '../language'
 import {useServerPing} from '../useServerPing'
 import InfoTip from './InfoTip'
+import {desktop} from '../desktop'
+import {progressLabel} from '../connectionProgress'
+import {useEffect, useState} from 'react'
 
 function rate(value: number): string {
   if (value >= 1024 * 1024) return (value / (1024 * 1024)).toFixed(1) + tr(' МБ/с', ' MB/s')
@@ -54,6 +57,22 @@ export default function Connection({
   const activeServer = servers.find((s) => s.id === (pending ? pendingServerId ?? selected?.id : status.serverId))
   const vpn = (active ? activeServer : selected)?.connMode === 'vpn'
   const presentation = connectionState(status.state, pending, vpn)
+  const [stage, setStage] = useState('')
+  useEffect(() => {
+    if (!presentation.busy) { setStage(''); return }
+    setStage('')
+    let active = true
+    let timer: ReturnType<typeof setTimeout>
+    const refresh = async () => {
+      try {
+        const progress = await desktop().ConnectionProgress()
+        if (active) setStage(progress.stage)
+      } catch { /* Older preview bridges do not provide progress. */ }
+      finally { if (active) timer = setTimeout(refresh, 250) }
+    }
+    void refresh()
+    return () => { active = false; clearTimeout(timer) }
+  }, [presentation.busy, pendingServerId])
   const connected = presentation.connected
   const verificationRequired = connected && !!status.captchaUrl
   const ping = useServerPing(status.serverId, connected)
@@ -105,7 +124,7 @@ export default function Connection({
           </span>
           <span className="power-action">{presentation.action}</span>
         </button>
-        <h2 aria-live="polite">{presentation.heading}</h2>
+        <h2 aria-live="polite">{presentation.busy && progressLabel(stage) || presentation.heading}</h2>
         <p>
           {active
             ? activeServer?.name || activeServer?.peer || tr('Соединение активно', 'Connection active')

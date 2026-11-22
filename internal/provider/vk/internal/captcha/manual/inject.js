@@ -8,6 +8,29 @@
     let finished = false;
     let pending;
     let loadFailure = '';
+    let slowLoad = false;
+
+    function widgetVisible() {
+        const root = document.getElementById('spa_root');
+        // Fixed-position React modals may leave their root at zero height.
+        const dialog = root?.querySelector('[role="dialog"]');
+        return !!root?.childElementCount && (root.getBoundingClientRect().height > 0 || !!dialog?.getClientRects().length);
+    }
+
+    function refreshLoadStatus() {
+        if (finished || !pending) return;
+        if (widgetVisible()) {
+            pending.banner.hidden = true;
+            delete pending.banner.dataset.slow;
+            loadFailure = '';
+        } else if (slowLoad && pending.banner.dataset.slow !== 'true') {
+            pending.banner.dataset.slow = 'true';
+            pending.banner.hidden = false;
+            pending.text.textContent = 'FreeTurn · Проверка загружается дольше обычного. Можно подождать или обновить страницу / Verification is taking longer than usual. Wait or reload.';
+            if (loadFailure) pending.text.textContent += ' ' + loadFailure;
+            pending.retry.hidden = false;
+        }
+    }
 
     function rewriteUrl(url) {
         if (!url || typeof url !== 'string') return url;
@@ -104,26 +127,22 @@
         banner.append(text, retry);
         pending = {banner, text, retry};
         document.body.append(banner);
-        if (loadFailure) showLoadFailure(loadFailure);
         setTimeout(() => {
-            if (finished || loadFailure) return;
-            const root = document.getElementById('spa_root');
-            if (root && !root.childElementCount) showLoadFailure('Виджет VK не появился / VK widget did not appear.');
-            else if (root?.childElementCount) banner.hidden = true;
-            else {
-                text.textContent = 'FreeTurn · Если проверка не появилась, обновите страницу / If verification is missing, reload the page.';
-                retry.hidden = false;
-            }
-        }, 12000);
+            slowLoad = true;
+            refreshLoadStatus();
+        }, 30000);
+        const monitor = setInterval(() => {
+            if (finished) { clearInterval(monitor); return; }
+            refreshLoadStatus();
+        }, 500);
     }
 
     function showLoadFailure(message) {
         if (finished) return;
         loadFailure = message;
-        if (!pending) return;
-        pending.banner.hidden = false;
-        pending.text.textContent = 'FreeTurn · ' + message + ' Обновите страницу; если ошибка повторится, проверьте журнал приложения / Reload; if this persists, check the app log.';
-        pending.retry.hidden = false;
+        // A failed optional resource or a recoverable script error does not
+        // mean the challenge failed. Give the widget time and clear late UI.
+        refreshLoadStatus();
     }
 
     window.addEventListener('error', event => {
@@ -205,6 +224,18 @@
         const link = event.target?.closest?.('a[href]');
         if (link?.href) link.href = rewriteUrl(link.href);
     }, true);
+
+    // VK's mobile modal treats a backdrop click as dismiss. In this dedicated
+    // verification window that leaves a blank page with no way to reopen it.
+    // Protect only the outer IUI dialog; never intercept challenge controls.
+    for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend']) {
+        window.addEventListener(type, event => {
+            const dialog = document.querySelector('[role="dialog"][class*="modalCard__"]');
+            if (!dialog || !dialog.getClientRects().length || dialog.contains(event.target) || pending?.banner.contains(event.target)) return;
+            event.stopImmediatePropagation();
+            if (event.cancelable) event.preventDefault();
+        }, {capture: true, passive: false});
+    }
 
     const formSubmit = HTMLFormElement.prototype.submit;
     HTMLFormElement.prototype.submit = function (...args) {

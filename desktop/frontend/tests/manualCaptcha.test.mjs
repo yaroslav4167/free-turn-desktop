@@ -7,13 +7,17 @@ const script = readFileSync(new URL('../../../internal/provider/vk/internal/capt
 const layout = readFileSync(new URL('../../../internal/provider/vk/internal/captcha/manual/layout.css', import.meta.url), 'utf8')
 
 function setup() {
-  const requests=[], events=new Map(), timers=[]
+  const requests=[], events=new Map(), timers=[], intervals=[], delays=[]
   class Element {
-    constructor(tag='DIV') {this.tagName=tag;this.attributes={};this.children=[];this.style={};this.hidden=false}
+    constructor(tag='DIV') {this.tagName=tag;this.attributes={};this.children=[];this.style={};this.hidden=false;this.dataset={}}
+    getBoundingClientRect() {return {height:100}}
+    getClientRects() {return [{}]}
+    contains(target) {return target===this || this.children.includes(target)}
     setAttribute(name,value) {this.attributes[name]=value}
     getAttribute(name) {return this.attributes[name]}
     hasAttribute(name) {return Object.hasOwn(this.attributes,name)}
     querySelectorAll() {return []}
+    querySelector() {return null}
     append(...children) {this.children.push(...children)}
     addEventListener(name,callback) {this[name]=callback}
   }
@@ -26,12 +30,12 @@ function setup() {
   class Form extends Element {submit(){}}
   const root=new Element(), body=new Element('BODY')
   root.childElementCount=0
-  const document={body,documentElement:new Element(),createElement:tag=>new Element(tag.toUpperCase()),querySelectorAll:()=>[],addEventListener:()=>{},getElementById:id=>id==='spa_root'?root:null}
+  const document={body,documentElement:new Element(),createElement:tag=>new Element(tag.toUpperCase()),querySelector:()=>null,querySelectorAll:()=>[],addEventListener:()=>{},getElementById:id=>id==='spa_root'?root:null}
   const calls=[]
   const window={__ftpCaptcha:{local:'http://localhost:8765',upstream:'https://id.vk.ru'},fetch:(...args)=>{calls.push(args);return Promise.resolve({})},open(){},addEventListener:(name,callback)=>events.set(name,callback)}
-  const context={window,document,Element,HTMLScriptElement:resource('SCRIPT','src'),HTMLLinkElement:resource('LINK','href'),HTMLImageElement:resource('IMG','src'),HTMLIFrameElement:resource('IFRAME','src'),HTMLFormElement:Form,XMLHttpRequest:XHR,MutationObserver:class{observe(){}},URL,Request,Blob,navigator:{},location:{protocol:'http:',href:'http://localhost:8765/captcha',reload(){}},setTimeout:callback=>timers.push(callback)}
+  const context={window,document,Element,HTMLScriptElement:resource('SCRIPT','src'),HTMLLinkElement:resource('LINK','href'),HTMLImageElement:resource('IMG','src'),HTMLIFrameElement:resource('IFRAME','src'),HTMLFormElement:Form,XMLHttpRequest:XHR,MutationObserver:class{observe(){}},URL,Request,Blob,navigator:{},location:{protocol:'http:',href:'http://localhost:8765/captcha',reload(){}},setTimeout:(callback,delay)=>{delays.push(delay);return timers.push(callback)},setInterval:callback=>intervals.push(callback),clearInterval(){}}
   vm.runInNewContext(script,context)
-  return {context,requests,calls,events,timers,body,root}
+  return {context,requests,calls,events,timers,intervals,delays,body,root}
 }
 
 test('manual captcha rewrites dynamic resource setters before a request and retains HTTPS for scheme-relative URLs', () => {
@@ -71,7 +75,7 @@ test('manual captcha keeps a dark background and explains an empty widget with a
   assert.match(text.textContent,/Loading VK verification/)
   assert.equal(retry.hidden,true)
   timers[0]()
-  assert.match(text.textContent,/VK widget did not appear/)
+  assert.match(text.textContent,/taking longer than usual/)
   assert.equal(retry.hidden,false)
   assert.equal(typeof retry.click,'function')
 })
@@ -90,16 +94,19 @@ test('resource URLs retain webpack publicPath and nested CSS/font/module directo
 })
 
 test('namespaced resource errors show their upstream host without exposing query values', () => {
-  const {events,body}=setup()
+  const {events,body,timers}=setup()
   events.get('error')({target:{tagName:'SCRIPT',src:'http://localhost:8765/captcha-resource/https/st.vk.ru/chunks/js/demo.js?token=PRIVATE_DEMO'}})
+  assert.match(body.children[0].children[0].textContent,/Loading VK/)
+  timers[0]()
   assert.match(body.children[0].children[0].textContent,/st.vk.ru/)
   assert.doesNotMatch(body.children[0].children[0].textContent,/PRIVATE_DEMO|token=/)
 })
 
 test('required VK resource errors reveal only the host, not captcha query values', () => {
-  const {events,body}=setup()
+  const {events,body,timers}=setup()
   const [text,retry]=body.children[0].children
   events.get('error')({target:{tagName:'SCRIPT',src:'http://localhost:8765/generic_proxy?proxy_url='+encodeURIComponent('https://st.vk.ru/widget.js?token=PRIVATE_DEMO')}})
+  timers[0]()
   assert.match(text.textContent,/st.vk.ru/)
   assert.doesNotMatch(text.textContent,/PRIVATE_DEMO|token=/)
   assert.equal(retry.hidden,false)
@@ -111,15 +118,43 @@ test('optional advertising errors do not claim the captcha failed', () => {
   assert.equal(body.children[0].children[1].hidden,true)
 })
 
-test('loaded widget is not permanently covered by diagnostics; script failures restore the status', () => {
+test('loaded widget is not covered by optional script failures', () => {
   const {events,body,timers,root}=setup()
   root.childElementCount=1
   timers[0]()
   assert.equal(body.children[0].hidden,true)
   events.get('error')({filename:'http://localhost:8765/generic_proxy?proxy_url='+encodeURIComponent('https://st.vk.ru/widget.js?sid=private-demo')})
-  assert.equal(body.children[0].hidden,false)
-  assert.match(body.children[0].children[0].textContent,/VK script error/)
+  assert.equal(body.children[0].hidden,true)
   assert.doesNotMatch(body.children[0].children[0].textContent,/private-demo/)
+})
+
+test('slow captcha is not declared failed and late rendering removes the warning', () => {
+  const {body,root,timers,intervals,delays}=setup()
+  assert.equal(delays[0],30000)
+  intervals[0]()
+  assert.match(body.children[0].children[0].textContent,/Loading VK/)
+  timers[0]()
+  assert.equal(body.children[0].hidden,false)
+  root.childElementCount=1
+  intervals[0]()
+  assert.equal(body.children[0].hidden,true)
+})
+
+test('VK dialog ignores backdrop gestures but retains challenge and reload controls', () => {
+  const {context,events,body}=setup()
+  const dialog=new context.Element(), input=new context.Element()
+  dialog.append(input)
+  context.document.querySelector=()=>dialog
+  for (const type of ['pointerdown','pointerup','mousedown','mouseup','click','touchstart','touchend']) {
+    let stopped=0
+    const event={target:body,cancelable:true,stopImmediatePropagation(){stopped++},preventDefault(){}}
+    events.get(type)(event)
+    assert.equal(stopped,1)
+    event.target=input;events.get(type)(event)
+    assert.equal(stopped,1)
+    event.target=body.children[0];events.get(type)(event)
+    assert.equal(stopped,1)
+  }
 })
 
 test('narrow-window captcha is centered without resizing or transforming challenge controls', () => {

@@ -49,6 +49,21 @@ func TestNativeStatusTrayIcons(t *testing.T) {
 	}
 }
 
+func TestFailedStatusRequestRemainsRetryable(t *testing.T) {
+	tip := (Status{State: "connected"}).Tooltip()
+	target := &Tray{status: Status{State: "connected"}, requestedTip: tip}
+	target.needsRetry.Store(true)
+	// A completion for an old request must not acknowledge a new status.
+	target.markStatusApplied(Status{State: "connecting"}, 0, tip)
+	if !target.needsRetry.Load() {
+		t.Fatal("stale completion acknowledged pending request")
+	}
+	target.markStatusApplied(target.status, 0, tip)
+	if target.needsRetry.Load() {
+		t.Fatal("successful current status remains pending")
+	}
+}
+
 func TestDenseNativeTrayIcons(t *testing.T) {
 	for _, light := range []bool{false, true} {
 		handle, err := loadWindowsTrayIcon(light)

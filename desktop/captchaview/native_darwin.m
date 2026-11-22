@@ -45,14 +45,16 @@ static BOOL allowed(NSURL *url) {
 
 void ft_captcha_command(int command) {
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (command==1 && window) { [NSApp activateIgnoringOtherApps:YES]; [window makeKeyAndOrderFront:nil]; }
+        if (command==1 && window) { [window deminiaturize:nil]; [NSApp activateIgnoringOtherApps:YES]; [window makeKeyAndOrderFront:nil]; }
         if (command==2 && window) [window close];
     });
 }
 int ft_captcha_run(const char *url, const char *title, const char *reload, const char *external) {
     @autoreleasepool {
         [NSApplication sharedApplication];
-        [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+        // A standalone task-switcher entry keeps verification recoverable
+        // after the main FreeTurn app or another application takes focus.
+        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
         FTCaptchaDelegate *delegate=[FTCaptchaDelegate new];
         WKWebViewConfiguration *config=[WKWebViewConfiguration new];
         config.websiteDataStore=[WKWebsiteDataStore nonPersistentDataStore];
@@ -61,6 +63,7 @@ int ft_captcha_run(const char *url, const char *title, const char *reload, const
         window.title=[NSString stringWithUTF8String:title]; window.delegate=delegate;
         window.minSize=NSMakeSize(480,420);
         window.releasedWhenClosed=NO;
+        window.hidesOnDeactivate=NO;
         window.appearance=[NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
         NSView *content=window.contentView;
         view=[[WKWebView alloc] initWithFrame:NSMakeRect(0,0,720,650) configuration:config];

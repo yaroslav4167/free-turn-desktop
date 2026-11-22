@@ -60,6 +60,9 @@ type Engine struct {
 	pingGeneration               uint64
 	planGeneration               uint64
 	preparing, preparationFailed bool
+	diagnosticEvents             []DiagnosticEvent
+	progressStage                string
+	progressServerID             string
 }
 
 func NewEngine(store *Store) *Engine {
@@ -99,6 +102,7 @@ func (e *Engine) Connect(srv Server) (err error) {
 	e.planGeneration++
 	generation := e.planGeneration
 	e.preparing, e.preparationFailed = true, false
+	e.progressStage, e.progressServerID = "validation", srv.ID
 	e.mu.Unlock()
 	defer func() { cancel(); e.finishConnectPlan(generation, err) }()
 	if srv.Peer == "" {
@@ -118,6 +122,7 @@ func (e *Engine) Connect(srv Server) (err error) {
 	var routeOverride string
 	var exclusions []string
 	if vpn {
+		e.setProgress(generation, "dns")
 		resolver := newPreflightResolver(srv)
 		exclusions, err = resolveExclusions(ctx, srv, resolver)
 		if err != nil {
@@ -128,6 +133,7 @@ func (e *Engine) Connect(srv Server) (err error) {
 		if parseErr != nil {
 			return parseErr
 		}
+		e.setProgress(generation, "routing-lists")
 		routeOverride, err = routing.Build(ctx, params.AllowedIPs, params.DNS, srv.RoutingLists, resolver, exclusions...)
 		if err != nil {
 			return fmt.Errorf("списки маршрутизации VPN: %w", err)
@@ -153,8 +159,9 @@ func (e *Engine) Connect(srv Server) (err error) {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		return wintunnel.ConnectWithRoutes(cfg, srv.WgClientConf, DefaultTunnelMTU, routeOverride, exclusions...)
+		return wintunnel.ConnectWithProgress(cfg, srv.WgClientConf, DefaultTunnelMTU, routeOverride, func(stage string) { e.setProgress(generation, stage) }, exclusions...)
 	}
+	e.setProgress(generation, "relay")
 	return mobile.Start(cfg)
 }
 
@@ -162,6 +169,7 @@ func (e *Engine) Disconnect() {
 	e.mu.Lock()
 	e.planGeneration++
 	e.preparing, e.preparationFailed = false, false
+	e.progressStage, e.progressServerID = "", ""
 	if e.planCancel != nil {
 		e.planCancel()
 		e.planCancel = nil
@@ -177,7 +185,35 @@ func (e *Engine) finishConnectPlan(generation uint64, err error) {
 		return
 	}
 	e.preparing = false
+	e.progressStage = ""
 	e.preparationFailed = err != nil && !errors.Is(err, context.Canceled)
+}
+
+type ConnectionProgress struct {
+	Stage    string `json:"stage"`
+	ServerID string `json:"serverId"`
+}
+
+func (e *Engine) setProgress(generation uint64, stage string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if generation == e.planGeneration && e.preparing {
+		e.progressStage = stage
+	}
+}
+
+func (e *Engine) ConnectionProgress() ConnectionProgress {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	stage := e.progressStage
+	snapshot := mobile.GetState()
+	if e.captchaURL != "" && snapshot.State != mobile.StateIdle && snapshot.State != mobile.StateError {
+		stage = "captcha"
+	}
+	if stage == "" && snapshot.State == mobile.StateConnecting {
+		stage = "relay"
+	}
+	return ConnectionProgress{stage, e.progressServerID}
 }
 
 // This presentation-only snapshot also covers DNS/helper preparation, before
@@ -241,6 +277,12 @@ func (e *Engine) ConfigCommand(srv Server) (string, error) {
 // --- mobile.EventSink ---
 
 func (e *Engine) OnState(state string, streams, total int, errMsg string) {
+	e.mu.Lock()
+	e.diagnosticEvents = append(e.diagnosticEvents, DiagnosticEvent{time.Now().UTC().Format(time.RFC3339), safeState(state), streams, total})
+	if len(e.diagnosticEvents) > 100 {
+		e.diagnosticEvents = e.diagnosticEvents[len(e.diagnosticEvents)-100:]
+	}
+	e.mu.Unlock()
 	if state == mobile.StateIdle || state == mobile.StateError {
 		e.mu.Lock()
 		e.captchaURL = ""

@@ -132,6 +132,7 @@ type Tray struct {
 	status        Status
 	frame         int
 	requestedTip  string
+	needsRetry    atomic.Bool
 	lastKey       iconKey
 	lastTip       string
 	stopping      atomic.Bool
@@ -415,11 +416,12 @@ func (t *Tray) UpdateStatus(status Status, frame int) {
 	}
 	tip := status.Tooltip()
 	t.statusMu.Lock()
-	if t.status == status && t.frame == frame && t.requestedTip == tip {
+	if t.status == status && t.frame == frame && t.requestedTip == tip && !t.needsRetry.Load() {
 		t.statusMu.Unlock()
 		return
 	}
 	t.status, t.frame, t.requestedTip = status, frame, tip
+	t.needsRetry.Store(true)
 	t.statusMu.Unlock()
 	pPostMessageW.Call(uintptr(t.hwnd), uintptr(wmStatusTray), 0, 0)
 }

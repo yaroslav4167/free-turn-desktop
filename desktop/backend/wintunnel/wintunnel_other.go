@@ -17,5 +17,8 @@ func ConnectWithRoutes(configJSON, wgConfigText string, mtu int, routes string, 
 }
 
 func Disconnect() {}
+func ConnectWithProgress(configJSON, wgConfigText string, mtu int, routes string, progress func(string), exclusionIPs ...string) error {
+	return errUnsupported
+}
 
 func RunHelper(string) error { return errUnsupported }

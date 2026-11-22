@@ -45,7 +45,7 @@ static void deny_download(WebKitWebContext *context, WebKitDownload *download, g
 static gboolean deny_upload(WebKitWebView *webview, WebKitFileChooserRequest *request, gpointer data) { webkit_file_chooser_request_cancel(request); return TRUE; }
 static gboolean command_on_main(gpointer data) {
     int command=GPOINTER_TO_INT(data);
-    if (window && command==1) gtk_window_present(GTK_WINDOW(window));
+    if (window && command==1) { gtk_window_deiconify(GTK_WINDOW(window)); gtk_window_present(GTK_WINDOW(window)); }
     if (command==2) close_window();
     return G_SOURCE_REMOVE;
 }
@@ -58,6 +58,7 @@ int ft_captcha_run(const char *url, const char *title, const char *reload, const
     g_signal_connect(context,"download-started",G_CALLBACK(deny_download),NULL);
     window=gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window),title);
+    gtk_window_set_skip_taskbar_hint(GTK_WINDOW(window),FALSE);
     gtk_window_set_default_size(GTK_WINDOW(window),720,700);
     gtk_widget_set_size_request(window,480,420);
     gtk_window_set_position(GTK_WINDOW(window),GTK_WIN_POS_CENTER);

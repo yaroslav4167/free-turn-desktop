@@ -154,6 +154,9 @@ func Connect(configJSON, wgConfigText string, mtu int, exclusionIPs ...string) e
 }
 
 func ConnectWithRoutes(configJSON, wgConfigText string, mtu int, routeOverride string, exclusionIPs ...string) error {
+	return ConnectWithProgress(configJSON, wgConfigText, mtu, routeOverride, nil, exclusionIPs...)
+}
+func ConnectWithProgress(configJSON, wgConfigText string, mtu int, routeOverride string, progress func(string), exclusionIPs ...string) error {
 	mu.Lock()
 	alreadyActive := active != nil
 	mu.Unlock()
@@ -167,6 +170,7 @@ func ConnectWithRoutes(configJSON, wgConfigText string, mtu int, routeOverride s
 	if mtu <= 0 {
 		mtu = DefaultMTU
 	}
+	reportProgress(progress, "helper")
 	if err := ensureWintunDLL(); err != nil {
 		return fmt.Errorf("install wintun.dll: %w", err)
 	}
@@ -233,6 +237,7 @@ func ConnectWithRoutes(configJSON, wgConfigText string, mtu int, routeOverride s
 
 	// StartTunnelDevice takes ownership of dev from here - on failure it
 	// closes it itself, we only need to undo our own IP/route/DNS config.
+	reportProgress(progress, "relay")
 	if err := mobile.StartTunnelDevice(configJSON, dev, routes.Callback()); err != nil {
 		flushInterface(luid)
 		mobile.SetProtect(nil)
@@ -252,6 +257,7 @@ func ConnectWithRoutes(configJSON, wgConfigText string, mtu int, routeOverride s
 		return err
 	}
 
+	reportProgress(progress, "routes")
 	if err := configureRoutesAndDNS(luid, params); err != nil {
 		mobile.Stop()
 		flushInterface(luid)

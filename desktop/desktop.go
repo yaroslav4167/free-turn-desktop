@@ -87,7 +87,9 @@ func (a *App) domReady(ctx context.Context) {
 	if err := a.connectOnLaunch(a.Connect); err != nil {
 		a.desktopMu.Lock()
 		a.autoConnectError = fmt.Sprintf("Автоподключение: %v", err)
+		message := a.autoConnectError
 		a.desktopMu.Unlock()
+		wailsruntime.EventsEmit(a.ctx, "desktop:startup-error", message)
 		a.ShowWindow()
 	}
 }

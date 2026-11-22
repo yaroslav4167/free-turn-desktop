@@ -55,8 +55,8 @@ type App struct {
 func NewApp() *App {
 	store, err := backend.NewStore()
 	if err != nil {
-		// The store only fails on an unwritable config dir - nothing the user can
-		// fix from inside the app, so fail fast rather than run half-alive.
+		// Malformed JSON is recovered by the store. A filesystem failure must
+		// not turn into an apparently writable empty profile collection.
 		panic(fmt.Errorf("open server store: %w", err))
 	}
 	prefs, err := integration.LoadPreferences()
@@ -187,6 +187,8 @@ func (a *App) Disconnect() {
 func (a *App) Status() backend.Status {
 	return a.engine.Status()
 }
+
+func (a *App) ConnectionProgress() backend.ConnectionProgress { return a.engine.ConnectionProgress() }
 
 func (a *App) MeasurePing(serverID string) (backend.PingResult, error) {
 	return a.engine.MeasurePing(serverID)

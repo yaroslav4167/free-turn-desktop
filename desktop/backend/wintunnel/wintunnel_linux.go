@@ -40,6 +40,10 @@ func Connect(configJSON, wgConfigText string, mtu int, exclusionIPs ...string) (
 }
 
 func ConnectWithRoutes(configJSON, wgConfigText string, mtu int, routes string, exclusionIPs ...string) (err error) {
+	return ConnectWithProgress(configJSON, wgConfigText, mtu, routes, nil, exclusionIPs...)
+}
+
+func ConnectWithProgress(configJSON, wgConfigText string, mtu int, routes string, progress func(string), exclusionIPs ...string) (err error) {
 	mu.Lock()
 	if active != nil || connecting {
 		mu.Unlock()
@@ -64,6 +68,7 @@ func ConnectWithRoutes(configJSON, wgConfigText string, mtu int, routes string, 
 	if routes != "" {
 		params.AllowedIPs = routes
 	}
+	reportProgress(progress, "helper")
 	client, tunFD, dev4, dev6, err := startHelper(params)
 	if err != nil {
 		return err
@@ -103,12 +108,14 @@ func ConnectWithRoutes(configJSON, wgConfigText string, mtu int, routes string, 
 	if devErr != nil {
 		return fmt.Errorf("open Linux TUN: %w", devErr)
 	}
+	reportProgress(progress, "relay")
 	if err = mobile.StartTunnelDevice(configJSON, dev, nil); err != nil {
 		return err
 	}
 	if err = waitConnected(connectTimeout); err != nil {
 		return err
 	}
+	reportProgress(progress, "routes")
 	if err = client.call(helperRequest{Op: "routes", Params: params, Exclusions: exclusionIPs}); err != nil {
 		return fmt.Errorf("configure VPN routes: %w", err)
 	}

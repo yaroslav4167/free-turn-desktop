@@ -57,6 +57,7 @@ func (t *Tray) refreshIcon() {
 	if t.stopping.Load() {
 		return
 	}
+	t.needsRetry.Store(true)
 	t.refreshMotion()
 	light := preferLightWindowsTrayIcon()
 	t.statusMu.Lock()
@@ -72,6 +73,7 @@ func (t *Tray) refreshIcon() {
 	key := iconKey{status.Phase(), light, animationFrame(status.Phase(), frame), int(size)}
 	tip := status.Tooltip()
 	if key == t.lastKey && tip == t.lastTip {
+		t.markStatusApplied(status, frame, tip)
 		return
 	}
 	var icon windows.Handle
@@ -108,6 +110,15 @@ func (t *Tray) refreshIcon() {
 		}
 	}
 	t.lightIcon, t.lastKey, t.lastTip = light, key, tip
+	t.markStatusApplied(status, frame, tip)
+}
+
+func (t *Tray) markStatusApplied(status Status, frame int, tip string) {
+	t.statusMu.Lock()
+	defer t.statusMu.Unlock()
+	if t.status == status && t.frame == frame && t.requestedTip == tip {
+		t.needsRetry.Store(false)
+	}
 }
 
 func createWindowsStatusIcon(key iconKey) (windows.Handle, error) {

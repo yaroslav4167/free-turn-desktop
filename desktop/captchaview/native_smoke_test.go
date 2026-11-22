@@ -32,7 +32,15 @@ func TestNativeCaptchaWindow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	injection, err := os.ReadFile(filepath.Join("..", "..", "internal", "provider", "vk", "internal", "captcha", "manual", "inject.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("/inject.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/javascript")
+		_, _ = w.Write(injection)
+	})
 	mux.HandleFunc("/probe", func(w http.ResponseWriter, r *http.Request) {
 		select {
 		case probe <- r.URL.Query().Get("bridge") == "false":
@@ -66,25 +74,37 @@ func TestNativeCaptchaWindow(t *testing.T) {
 		_, _ = fmt.Fprint(w, `<!doctype html><html><head><style>
 .synthetic-overlay{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:center}
 .modalCard__fixture{position:relative;width:320px;margin-left:auto;margin-right:auto;margin-top:auto;margin-bottom:24px;align-self:flex-end;height:200px;background:#1b1c24;color:white}
-</style><style>`+string(css)+`</style></head><body><div class="synthetic-overlay"><div role="dialog" class="modalCard__fixture mobileCard__fixture"><label><input id="synthetic-check" type="checkbox">Synthetic verification: no VK connection</label></div></div><script>
+</style><style>`+string(css)+`</style><script>
+window.__ftpCaptcha={local:location.origin,upstream:'https://id.vk.ru'};
+const realTimeout=window.setTimeout.bind(window);
+window.setTimeout=(fn,ms,...args)=>realTimeout(fn,ms===30000?50:ms,...args);
+</script><script src="/inject.js"></script></head><body><div id="spa_root"></div><script>
 async function rejectsCapture(method,constraints) {
   const devices=navigator.mediaDevices;
   if (!devices || typeof devices[method]!=='function') return true;
   try { const stream=await devices[method](constraints);stream.getTracks().forEach(t=>t.stop());return false; }
   catch(e) {return true;}
 }
-fetch('/probe?bridge='+String(!!(window.go||window.wails||window.runtime))).then(async()=>{
+setTimeout(async()=>{
+  const warning=document.getElementById('ftp-captcha-status');
+  const slowWarningShown=warning&&!warning.hidden&&warning.textContent.includes('longer than usual');
+  document.getElementById('spa_root').innerHTML='<div class="synthetic-overlay"><div role="dialog" class="modalCard__fixture mobileCard__fixture"><label><input id="synthetic-check" type="checkbox">Synthetic verification: no VK connection</label></div></div>';
+  const overlay=document.querySelector('.synthetic-overlay');
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
+  await fetch('/probe?bridge='+String(!!(window.go||window.wails||window.runtime)));
   const dialog=document.querySelector('[role=dialog]'),rect=dialog.getBoundingClientRect();
   const centered=Math.abs((rect.top+rect.bottom)/2-innerHeight/2)<2;
   const checkbox=document.getElementById('synthetic-check');checkbox.click();
-  await fetch('/layout-probe?ok='+String(centered&&checkbox.checked));
+  overlay.click();
+  await new Promise(resolve=>setTimeout(resolve,600));
+  await fetch('/layout-probe?ok='+String(centered&&checkbox.checked&&overlay.isConnected&&slowWarningShown&&warning.hidden));
   const camera=await rejectsCapture('getUserMedia',{video:true});
   const microphone=await rejectsCapture('getUserMedia',{audio:true});
   const screen=await rejectsCapture('getDisplayMedia',{video:true});
   await fetch('/media-probe?denied='+String(camera&&microphone&&screen));
   try { location.href='file:///freeturn-captcha-do-not-open'; } catch(e) {}
   setTimeout(()=>fetch('/still-here'),200);
-});</script></body></html>`)
+},250);</script></body></html>`)
 	})
 	server := &http.Server{Handler: mux, ReadHeaderTimeout: time.Second}
 	go server.Serve(listener)

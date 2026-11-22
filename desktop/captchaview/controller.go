@@ -64,7 +64,7 @@ type Controller struct {
 }
 
 func New(external func(string)) *Controller {
-	return &Controller{run: runProcess, timeout: 12 * time.Second, external: external}
+	return &Controller{run: runProcess, timeout: 45 * time.Second, external: external}
 }
 
 func (c *Controller) Show(raw string, labels Labels) error {

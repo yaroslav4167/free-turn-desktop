@@ -55,6 +55,7 @@ export default function App() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [version, setVersion] = useState('')
   const [connectError, setConnectError] = useState('')
+  const [recoveryNotice, setRecoveryNotice] = useState('')
   const connectionRequest = useRef(0)
   const [showAdd, setShowAdd] = useState(false)
   const [view, setView] = useState<View>('connect')
@@ -68,6 +69,7 @@ export default function App() {
   }, [status])
 
   useEffect(() => {
+    desktop().ProfileRecoveryNotice().then(setRecoveryNotice).catch(() => {})
     Promise.all([ListServers(), desktop().DesktopSettings().catch(() => null)])
       .then(([list, settings]) => {
         setServers(list)
@@ -77,6 +79,7 @@ export default function App() {
       })
       .catch((e) => setConnectError(String(e)))
     CoreVersion().then(setVersion)
+    const offStartupError = EventsOn('desktop:startup-error', (message: string) => setConnectError(message))
     const offState = watchStatus(
       Status,
       (listener) => {
@@ -97,6 +100,7 @@ export default function App() {
     )
     return () => {
       offState()
+      offStartupError()
       offLog()
       EventsOff('core:state', 'core:stats', 'core:log', 'core:captcha')
     }
@@ -105,7 +109,6 @@ export default function App() {
   useEffect(() => {
     const saved = servers.find((s) => s.id === selectedId) ?? null
     setDraft(saved ? backend.Server.createFrom(saved) : null)
-    setConnectError('')
   }, [selectedId, servers])
 
   const savedSelected = useMemo(() => servers.find((s) => s.id === selectedId) ?? null, [servers, selectedId])
@@ -114,6 +117,7 @@ export default function App() {
   const selectServer = (id: string) => {
     if (id === selectedId) return
     if (dirty && !window.confirm(tr('Несохранённые изменения будут потеряны. Продолжить?', 'Unsaved changes will be lost. Continue?'))) return
+    setConnectError('')
     setSelectedId(id)
     localStorage.setItem('freeturn:selected-server', id)
   }
@@ -132,6 +136,17 @@ export default function App() {
     await DeleteServer(draft.id)
     setServers((prev) => prev.filter((s) => s.id !== draft.id))
     setSelectedId(null)
+  }
+
+  const handleImport = async () => {
+    if (dirty && !window.confirm(tr('Несохранённые изменения будут потеряны. Продолжить?', 'Unsaved changes will be lost. Continue?'))) return
+    try {
+      const imported = await desktop().ImportProfiles()
+      if (!imported.length) return
+      setServers(await ListServers())
+      setSelectedId(imported[0].id)
+      setRecoveryNotice('')
+    } catch (e) { setConnectError(String(e)) }
   }
 
   const handleConnect = async () => {
@@ -179,6 +194,11 @@ export default function App() {
               </button>
             </div>
           )}
+          {recoveryNotice && <div className="notice info" role="status">
+            <span>{recoveryNotice === 'recovered' ? tr('Профили восстановлены из резервной копии. Повреждённый файл сохранён отдельно.', 'Profiles recovered from backup. The damaged file was preserved separately.') : tr('Файл профилей повреждён. Исходные данные сохранены; откройте настройки восстановления.', 'Profile file damaged. Original data preserved; open recovery settings.')}</span>
+            <button className="btn small" onClick={()=>changeView('settings')}>{tr('Настройки', 'Settings')}</button>
+            <button className="btn small" onClick={()=>setRecoveryNotice('')} aria-label={tr('Закрыть сообщение', 'Dismiss message')}>×</button>
+          </div>}
         </div>, document.body)}
         {view === 'connect' && (
           <Connection
@@ -195,7 +215,12 @@ export default function App() {
             onEdit={() => setView('servers')}
           />
         )}
-        {settingsOpened && <DesktopPreferences version={version} active={view === 'settings'} servers={servers} selectedServerId={selectedId||undefined} />}
+        {settingsOpened && <DesktopPreferences version={version} active={view === 'settings'} servers={servers} selectedServerId={selectedId||undefined} onProfilesRestored={async()=>{
+          const list = await ListServers()
+          setServers(list)
+          setSelectedId(list.find(s=>s.id===selectedId)?.id ?? list[0]?.id ?? null)
+          setRecoveryNotice('')
+        }} />}
         {view === 'logs' && (
           <section className="logs-page">
             <header className="page-heading">
@@ -217,6 +242,8 @@ export default function App() {
               activeServerId={status.serverId}
               onSelect={selectServer}
               onAdd={() => setShowAdd(true)}
+              onImport={handleImport}
+              onExport={id => { void desktop().ExportProfile(id).catch(e => setConnectError(String(e))) }}
             />
             <div className="main">
               {!draft ? (

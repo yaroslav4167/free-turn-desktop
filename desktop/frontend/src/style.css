@@ -1667,3 +1667,13 @@ button:disabled {
   border-color: var(--power-warn-border);
   color: var(--captcha-bg);
 }
+.profile-context-menu {
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+}
+.profile-context-menu .btn { width: 100%; text-align: left; }
+.sidebar-footer { display: flex; gap: 8px; }
+.sidebar-footer .btn-add { flex: 1; min-width: 0; width: auto; padding: 9px 4px; white-space: nowrap; }
+.sidebar-footer .profile-import { flex: 0 0 34px; display: grid; place-items: center; padding: 7px; }

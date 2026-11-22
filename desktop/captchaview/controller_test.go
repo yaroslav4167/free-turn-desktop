@@ -70,6 +70,31 @@ func TestControllerOpensNativeFirstAndFocusesWithoutDuplicates(t *testing.T) {
 	}
 }
 
+func TestReadyWindowIsNotClosedWhileChallengeLoadsSlowly(t *testing.T) {
+	var external atomic.Int32
+	ready := make(chan struct{})
+	c := New(func(string) { external.Add(1) })
+	c.timeout = 10 * time.Millisecond
+	c.run = func(ctx context.Context, _ childConfig, _ <-chan string, emit func(string)) error {
+		emit("READY")
+		close(ready)
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	defer c.Close()
+	if err := c.Show(demoURL, Labels{}); err != nil {
+		t.Fatal(err)
+	}
+	waitSignal(t, ready)
+	time.Sleep(40 * time.Millisecond)
+	c.mu.Lock()
+	active := c.active != nil && !c.active.fallback
+	c.mu.Unlock()
+	if !active || external.Load() != 0 {
+		t.Fatal("slow challenge closed a ready native window")
+	}
+}
+
 func TestControllerFallsBackOnceWithoutAsking(t *testing.T) {
 	for _, mode := range []string{"startup-error", "runtime-failure", "external-button", "timeout"} {
 		t.Run(mode, func(t *testing.T) {

@@ -19,6 +19,12 @@ export interface DesktopSettings {
 }
 
 interface DesktopAPI {
+  ExportProfile(id: string): Promise<void>
+  ImportProfiles(): Promise<import('../wailsjs/go/models').backend.Server[]>
+  RestoreProfilesBackup(): Promise<void>
+  ProfileRecoveryNotice(): Promise<string>
+  ExportDiagnostics(): Promise<void>
+  ConnectionProgress(): Promise<{stage: string; serverId: string}>
   MeasurePing(serverId: string): Promise<{serverId: string, host: string, milliseconds: number}>
   SetLanguage(language: string): Promise<void>
   SetTheme(theme: string): Promise<void>
