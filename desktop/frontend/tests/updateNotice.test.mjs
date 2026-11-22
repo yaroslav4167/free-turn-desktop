@@ -31,6 +31,9 @@ test('update detection opens a dismissible dialog with visible changes and expli
   assert.match(component,/saveDismissedUpdate\(id\)/)
   assert.match(component,/tr\('Позже', 'Later'\)/)
   assert.match(component,/state.downloadedPath && !busy/)
+  assert.match(component,/const canInstall = state.canInstallUpdates === true/)
+  assert.match(component,/tr\('Обновить до \{version\}'/)
+  assert.match(component,/tr\('Скачать архив', 'Download archive'\)/)
 })
 
 test('large changelogs scroll inside the dialog while action buttons remain outside', () => {

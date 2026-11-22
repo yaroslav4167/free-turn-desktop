@@ -2,6 +2,13 @@
   "code": "en",
   "name": "English",
   "messages": {
+    "Обновить до {version}": "Update to {version}",
+    "Скачать архив": "Download archive",
+    "История обновлений": "Update history",
+    "Загрузка истории…": "Loading update history…",
+    "Опубликованных релизов пока нет.": "No published releases yet.",
+    "До 30 последних стабильных релизов из GitHub.": "Up to 30 recent stable releases from GitHub.",
+    "Все релизы на GitHub": "All releases on GitHub",
     "Диагностика": "Diagnostics",
     "Восстановление профилей": "Profile recovery",
     "При повреждении файла профили восстанавливаются автоматически из исправной копии. Ручное восстановление — запасной откат после нежелательных изменений или удаления профилей.": "Damaged profiles are automatically recovered from a valid backup. Manual recovery is a fallback for unwanted changes or deleted profiles.",

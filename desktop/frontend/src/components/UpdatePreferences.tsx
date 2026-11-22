@@ -3,9 +3,10 @@ import {createPortal} from 'react-dom'
 import {desktop, UpdateState} from '../desktop'
 import Icon from './Icon'
 import InfoTip from './InfoTip'
-import ReleaseNotes, {ReleaseNotesContent} from './ReleaseNotes'
+import {ReleaseNotesContent} from './ReleaseNotes'
 import {useDialogFocus} from '../useDialogFocus'
 import {EventsOn} from '../api'
+import ReleaseHistoryDialog from './ReleaseHistoryDialog'
 import {currentLanguage, tr} from '../language'
 import {readDismissedUpdate, saveDismissedUpdate, updateNoticeId} from '../updateNotice'
 import {updateProgress, UpdateAction} from '../updateProgress'
@@ -58,14 +59,9 @@ function UpdateDialog({initial, onClose, onOpen}: {initial:UpdateState; onClose:
   const state = live || initial
   const close = () => onClose(updateNoticeId(state))
   const dialog = useDialogFocus(close)
-  const [canInstall, setCanInstall] = useState(false)
+  const canInstall = state.canInstallUpdates === true
   const [pending, setPending] = useState<UpdateAction | null>(null)
   const [error, setError] = useState('')
-  useEffect(() => {
-    let active = true
-    desktop().DesktopSettings().then(settings=>{if(active)setCanInstall(settings.canInstallUpdates)}).catch(()=>{})
-    return ()=>{active=false}
-  }, [])
   const run = async (operation:UpdateAction, action:()=>Promise<void>) => {
     setPending(operation); setError('')
     try { await action() } catch(e) { setError(String(e)) } finally { setPending(null) }
@@ -88,8 +84,8 @@ function UpdateDialog({initial, onClose, onOpen}: {initial:UpdateState; onClose:
       </section>}
       {state.downloadedPath && !busy && <p className="notice info" role="status">{tr('Архив проверен по SHA-256 и сохранён:', 'Archive verified with SHA-256 and saved:')} <span className="mono update-path">{state.downloadedPath}</span></p>}
       <div className="inline-actions update-actions">
-        {canInstall && <button className="btn primary" disabled={busy} onClick={()=>run('installing',()=>desktop().InstallUpdate())}>{tr('Скачать и установить', 'Download and install')}</button>}
-        <button className={'btn'+(canInstall?'':' primary')} disabled={busy} onClick={()=>run('downloading',()=>desktop().DownloadUpdate())}><Icon name="download" size={17} /> {tr('Скачать {version}', {version:state.latestVersion})}</button>
+        {state.available && canInstall && <button className="btn primary" disabled={busy} onClick={()=>run('installing',()=>desktop().InstallUpdate())}>{tr('Обновить до {version}', {version:state.latestVersion})}</button>}
+        {state.available && <button className={'btn'+(canInstall?'':' primary')} disabled={busy} onClick={()=>run('downloading',()=>desktop().DownloadUpdate())}><Icon name="download" size={17} /> {tr('Скачать архив', 'Download archive')}</button>}
         <button className="btn" onClick={()=>{close();onOpen()}}>{tr('Открыть настройки', 'Open settings')}</button>
         <button className="btn ghost" onClick={close}>{tr('Позже', 'Later')}</button>
       </div>
@@ -97,16 +93,20 @@ function UpdateDialog({initial, onClose, onOpen}: {initial:UpdateState; onClose:
   </div>
 }
 
-export default function UpdatePreferences({active, autoCheck, onAutoCheck, disabled, canInstall}: {
+export default function UpdatePreferences({active, autoCheck, onAutoCheck, disabled, canInstall, onDialogChange}: {
   active: boolean
   autoCheck: boolean
   onAutoCheck: (enabled: boolean) => void
   disabled: boolean
   canInstall: boolean
+  onDialogChange: (open:boolean)=>void
 }) {
   const state = useUpdateState(500, active)
   const [pending, setPending] = useState<UpdateAction | null>(null)
   const [error, setError] = useState('')
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const showHistory = (open:boolean) => { setHistoryOpen(open); onDialogChange(open) }
+  useEffect(()=>{ if(!active) { setHistoryOpen(false); onDialogChange(false) } },[active,onDialogChange])
   const run = async (operation: UpdateAction, action: () => Promise<void>) => {
     setPending(operation)
     setError('')
@@ -135,7 +135,6 @@ export default function UpdatePreferences({active, autoCheck, onAutoCheck, disab
         </InfoTip>
         {state?.checkedAt && <span>{state.available ? tr('Доступна {version}', {version: state.latestVersion}) : tr('Обновлений нет', 'No updates')}</span>}
       </div>
-      {state?.latestVersion && state.releaseNotes?.trim() && <ReleaseNotes key={state.latestVersion} version={state.latestVersion} text={state.releaseNotes} />}
       <div className="preference-row">
         <div className="update-summary">
           <label htmlFor="auto-check-updates"><strong>{tr('Автопроверка', 'Automatic checks')}</strong></label>
@@ -157,14 +156,17 @@ export default function UpdatePreferences({active, autoCheck, onAutoCheck, disab
         <button className="btn" disabled={busy || !state?.repository} onClick={() => run('checking', () => desktop().CheckForUpdates())}>
           {state?.busy === 'checking' ? tr('Проверка…', 'Checking…') : tr('Проверить обновления', 'Check for updates')}
         </button>
+        <button className="btn" disabled={!state?.repository} onClick={()=>showHistory(true)}>
+          {tr('История обновлений', 'Update history')}
+        </button>
         {state?.available && canInstall && (
           <button className="btn primary" disabled={busy} onClick={() => run('installing', () => desktop().InstallUpdate())}>
-            {pending === 'installing' || state.busy === 'preparing' || state.busy === 'restarting' ? tr('Подготовка обновления…', 'Preparing update…') : tr('Скачать и установить', 'Download and install')}
+            {pending === 'installing' || state.busy === 'preparing' || state.busy === 'restarting' ? tr('Подготовка обновления…', 'Preparing update…') : tr('Обновить до {version}', {version:state.latestVersion})}
           </button>
         )}
         {state?.available && (
-          <button className="btn primary" disabled={busy} onClick={() => run('downloading', () => desktop().DownloadUpdate())}>
-            <Icon name="download" size={17} /> {state.busy === 'downloading' ? tr('Скачивание…', 'Downloading…') : tr('Скачать {version}', {version: state.latestVersion})}
+          <button className={'btn'+(canInstall?'':' primary')} disabled={busy} onClick={() => run('downloading', () => desktop().DownloadUpdate())}>
+            <Icon name="download" size={17} /> {state.busy === 'downloading' ? tr('Скачивание…', 'Downloading…') : tr('Скачать архив', 'Download archive')}
           </button>
         )}
       </div>
@@ -191,6 +193,7 @@ export default function UpdatePreferences({active, autoCheck, onAutoCheck, disab
           {tr('Архив проверен по SHA-256 и сохранён:', 'Archive verified with SHA-256 and saved:')} <span className="mono update-path">{state.downloadedPath}</span>
         </div>
       )}
+      {active && historyOpen && state?.repository && <ReleaseHistoryDialog repository={state.repository} onClose={()=>showHistory(false)} />}
     </div>
   )
 }

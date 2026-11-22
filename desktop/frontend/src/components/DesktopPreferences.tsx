@@ -102,6 +102,7 @@ export default function DesktopPreferences({version, active, servers, selectedSe
         </button>
       </div>
       <UpdatePreferences active={active} autoCheck={settings.autoCheckUpdates} disabled={busy} canInstall={settings.canInstallUpdates}
+        onDialogChange={onDialogChange}
         onAutoCheck={enabled=>run(()=>desktop().SetAutoCheckUpdates(enabled))} />
     </>}
     <footer className="settings-about">

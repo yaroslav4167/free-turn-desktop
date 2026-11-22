@@ -31,6 +31,7 @@ type State struct {
 	CurrentKnown        bool   `json:"currentKnown"`
 	LatestVersion       string `json:"latestVersion"`
 	ReleaseNotes        string `json:"releaseNotes"`
+	CanInstallUpdates   bool   `json:"canInstallUpdates"`
 	Available           bool   `json:"available"`
 	AssetName           string `json:"assetName"`
 	ReleaseURL          string `json:"releaseUrl"`
@@ -53,14 +54,19 @@ type asset struct {
 	Size int64  `json:"size"`
 }
 type release struct {
-	Tag        string  `json:"tag_name"`
-	Body       string  `json:"body"`
-	Draft      bool    `json:"draft"`
-	Prerelease bool    `json:"prerelease"`
-	Assets     []asset `json:"assets"`
+	Tag         string  `json:"tag_name"`
+	Body        string  `json:"body"`
+	PublishedAt string  `json:"published_at"`
+	Draft       bool    `json:"draft"`
+	Prerelease  bool    `json:"prerelease"`
+	Assets      []asset `json:"assets"`
 }
 
 type Manager struct {
+	historyMu       sync.Mutex
+	history         []ReleaseEntry
+	historyExpires  time.Time
+	historyLatest   string
 	mu              sync.Mutex
 	state           State
 	platform        string

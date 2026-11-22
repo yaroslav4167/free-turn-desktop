@@ -18,11 +18,3 @@ export function ReleaseNotesContent({text}: {text:string}) {
             : <p key={i}>{inline(block.lines.join(' '))}</p>)}
     </div>
 }
-
-export default function ReleaseNotes({version, text}: {version:string; text:string}) {
-  if (!text.trim()) return null
-  return <details className="release-notes">
-    <summary>{tr('Что нового в {version}', {version})}</summary>
-    <ReleaseNotesContent text={text} />
-  </details>
-}

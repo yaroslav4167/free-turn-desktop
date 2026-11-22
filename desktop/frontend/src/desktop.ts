@@ -19,6 +19,7 @@ export interface DesktopSettings {
 }
 
 interface DesktopAPI {
+  ReleaseHistory(): Promise<ReleaseHistoryEntry[]>
   ExportProfile(id: string): Promise<void>
   ImportProfiles(): Promise<import('../wailsjs/go/models').backend.Server[]>
   RestoreProfilesBackup(): Promise<void>
@@ -53,6 +54,7 @@ export interface UpdateState {
   currentKnown: boolean
   latestVersion: string
   releaseNotes?: string
+  canInstallUpdates?: boolean
   available: boolean
   assetName: string
   releaseUrl: string
@@ -67,6 +69,12 @@ export interface UpdateState {
   total: number
   installationMessage: string
   backupPath: string
+}
+
+export interface ReleaseHistoryEntry {
+  version: string
+  publishedAt: string
+  notes: string
 }
 
 export function desktop(): DesktopAPI {

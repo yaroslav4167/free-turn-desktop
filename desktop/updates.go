@@ -33,6 +33,7 @@ func (a *App) startUpdateChecks(ctx context.Context) {
 
 func (a *App) UpdateState() updates.State {
 	state := a.updater.State()
+	state.CanInstallUpdates = integration.CanInstallUpdates
 	state.InstallationMessage, state.BackupPath = a.updateResult.Message, a.updateResult.BackupPath
 	// Success notices are transient in settings, but failures/rollback must remain visible.
 	if state.Error == "" && a.updateResult.Message != "" && !strings.HasPrefix(a.updateResult.Message, "Обновление установлено.") {
@@ -41,6 +42,10 @@ func (a *App) UpdateState() updates.State {
 	return state
 }
 func (a *App) CheckForUpdates() error { return a.checkForUpdates(a.updateContext) }
+
+func (a *App) ReleaseHistory() ([]updates.ReleaseEntry, error) {
+	return a.updater.History(a.updateContext)
+}
 
 func (a *App) checkForUpdates(ctx context.Context) error {
 	err := a.updater.Check(ctx)
