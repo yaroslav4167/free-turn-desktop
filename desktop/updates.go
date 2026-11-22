@@ -23,24 +23,12 @@ var updateRepository = "yaroslav4167/free-turn-desktop"
 func (a *App) startUpdateChecks(ctx context.Context) {
 	ctx, a.updateCancel = context.WithCancel(ctx)
 	a.updateContext = ctx
-	go func() {
-		timer := time.NewTimer(10 * time.Second)
-		defer timer.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-timer.C:
-				a.desktopMu.Lock()
-				enabled := a.preferences.AutoCheckUpdates
-				a.desktopMu.Unlock()
-				if enabled && a.updater.State().Repository != "" {
-					_ = a.updater.Check(ctx)
-				}
-				timer.Reset(6 * time.Hour)
-			}
-		}
-	}()
+	go runAutoUpdateChecks(ctx, 6*time.Hour, func() bool {
+		a.desktopMu.Lock()
+		enabled := a.preferences.AutoCheckUpdates
+		a.desktopMu.Unlock()
+		return enabled && a.updater.State().Repository != ""
+	}, a.checkForUpdates)
 }
 
 func (a *App) UpdateState() updates.State {
@@ -52,7 +40,15 @@ func (a *App) UpdateState() updates.State {
 	}
 	return state
 }
-func (a *App) CheckForUpdates() error { return a.updater.Check(a.updateContext) }
+func (a *App) CheckForUpdates() error { return a.checkForUpdates(a.updateContext) }
+
+func (a *App) checkForUpdates(ctx context.Context) error {
+	err := a.updater.Check(ctx)
+	if ctx.Err() == nil {
+		wailsruntime.EventsEmit(ctx, "desktop:update", a.UpdateState())
+	}
+	return err
+}
 
 func (a *App) SetAutoCheckUpdates(enabled bool) error {
 	a.desktopMu.Lock()

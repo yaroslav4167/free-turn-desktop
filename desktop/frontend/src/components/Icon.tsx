@@ -1,5 +1,5 @@
 export type IconName =
-  'power' | 'stop' | 'servers' | 'logs' | 'settings' | 'plus' | 'arrow' | 'download' | 'upload' | 'tray' | 'shield'
+  'power' | 'stop' | 'servers' | 'logs' | 'settings' | 'plus' | 'arrow' | 'download' | 'upload' | 'tray' | 'shield' | 'wrench'
 
 const paths: Record<IconName, string> = {
   power: 'M12 3v9 M6.3 5.8a8 8 0 1 0 11.4 0',
@@ -13,6 +13,7 @@ const paths: Record<IconName, string> = {
   upload: 'M12 15V3 M7 8l5-5 5 5 M4 17v4h16v-4',
   tray: 'M4 4h16v11H4z M8 20h8 M12 15v5 M9 8l3 3 3-3',
   shield: 'M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6z M8 12l3 3 5-6',
+  wrench: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z',
 }
 
 export default function Icon({name, size = 20}: {name: IconName; size?: number}) {

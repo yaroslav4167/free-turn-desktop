@@ -2,6 +2,9 @@
   "code": "en",
   "name": "English",
   "messages": {
+    "Диагностика": "Diagnostics",
+    "Восстановление профилей": "Profile recovery",
+    "При повреждении файла профили восстанавливаются автоматически из исправной копии. Ручное восстановление — запасной откат после нежелательных изменений или удаления профилей.": "Damaged profiles are automatically recovered from a valid backup. Manual recovery is a fallback for unwanted changes or deleted profiles.",
     "Описание изменений не опубликовано.": "Release notes have not been published.",
     "Позже": "Later",
     "Что нового в {version}": "What’s new in {version}",
@@ -379,7 +382,7 @@
     "Обновлений нет": "No updates",
     "Автопроверка": "Automatic checks",
     "О расписании автопроверки": "About the update schedule",
-    "Через 10 секунд после запуска, затем каждые 6 часов через публичный GitHub API.": "10 seconds after launch, then every 6 hours using the public GitHub API.",
+    "Сразу после запуска, затем каждые 6 часов через публичный GitHub API. Проверка выполняется в фоне.": "Immediately after launch, then every 6 hours using the public GitHub API. Checks run in the background.",
     "Проверка…": "Checking…",
     "Проверить обновления": "Check for updates",
     "Подготовка обновления…": "Preparing update…",

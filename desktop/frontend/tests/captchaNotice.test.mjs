@@ -15,7 +15,7 @@ test('captcha action is independent of connection phase and visible on every scr
   const app = read('App.tsx')
   assert.match(app, /<CaptchaNotice url=\{status\.captchaUrl \|\| ''\}/)
   assert.ok(app.indexOf('<CaptchaNotice') < app.indexOf("{view === 'connect'"))
-  assert.match(app,/blocked=\{showAdd \|\| !!status.captchaUrl \|\| pending\}/)
+  assert.match(app,/blocked=\{showAdd \|\| settingsDialogOpen \|\| !!status.captchaUrl \|\| pending\}/)
 })
 
 test('connected captcha warning keeps disconnect action and uses amber rather than a disconnected state', () => {

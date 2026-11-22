@@ -39,3 +39,11 @@ test('large changelogs scroll inside the dialog while action buttons remain outs
   assert.match(css,/\.update-dialog \.release-notes-body\s*\{[^}]*max-height: min\(45vh, 360px\)/)
   assert.match(css,/\.update-dialog > :not\(\.release-notes-body\)\s*\{[^}]*flex-shrink: 0/)
 })
+
+test('completed checks update the UI immediately without a stale poll overwriting the event', () => {
+  const component=readFileSync(new URL('../src/components/UpdatePreferences.tsx',import.meta.url),'utf8')
+  assert.match(component,/EventsOn\('desktop:update'/)
+  assert.match(component,/revision\+\+/)
+  assert.match(component,/active && startedAt === revision/)
+  assert.match(component,/offUpdate\(\)/)
+})

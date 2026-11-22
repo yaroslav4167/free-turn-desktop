@@ -5,6 +5,7 @@ import Icon from './Icon'
 import InfoTip from './InfoTip'
 import ReleaseNotes, {ReleaseNotesContent} from './ReleaseNotes'
 import {useDialogFocus} from '../useDialogFocus'
+import {EventsOn} from '../api'
 import {currentLanguage, tr} from '../language'
 import {readDismissedUpdate, saveDismissedUpdate, updateNoticeId} from '../updateNotice'
 import {updateProgress, UpdateAction} from '../updateProgress'
@@ -14,11 +15,17 @@ function useUpdateState(interval: number, enabled = true) {
   useEffect(() => {
     if (!enabled) return
     let active = true
+    let revision = 0
+    const offUpdate = EventsOn('desktop:update', (next:UpdateState) => {
+      revision++
+      if (active) setState(next)
+    })
     let timer: number | undefined
     const refresh = async () => {
       try {
+        const startedAt = revision
         const next = await desktop().UpdateState()
-        if (active) setState(next)
+        if (active && startedAt === revision) setState(next)
       } catch {
         // The local bridge can disappear while the application restarts.
       } finally {
@@ -28,6 +35,7 @@ function useUpdateState(interval: number, enabled = true) {
     refresh()
     return () => {
       active = false
+      offUpdate()
       window.clearTimeout(timer)
     }
   }, [interval, enabled])
@@ -131,7 +139,7 @@ export default function UpdatePreferences({active, autoCheck, onAutoCheck, disab
       <div className="preference-row">
         <div className="update-summary">
           <label htmlFor="auto-check-updates"><strong>{tr('Автопроверка', 'Automatic checks')}</strong></label>
-          <InfoTip label={tr('О расписании автопроверки', 'About the update schedule')}>{tr('Через 10 секунд после запуска, затем каждые 6 часов через публичный GitHub API.', '10 seconds after launch, then every 6 hours using the public GitHub API.')}</InfoTip>
+          <InfoTip label={tr('О расписании автопроверки', 'About the update schedule')}>{tr('Сразу после запуска, затем каждые 6 часов через публичный GitHub API. Проверка выполняется в фоне.', 'Immediately after launch, then every 6 hours using the public GitHub API. Checks run in the background.')}</InfoTip>
         </div>
         <input
           id="auto-check-updates"

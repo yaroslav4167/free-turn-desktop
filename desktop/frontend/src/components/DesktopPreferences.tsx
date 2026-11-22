@@ -8,6 +8,7 @@ import FieldLabel from './FieldLabel'
 import {configureTheme, subscribeTheme, themeSnapshot} from '../theme'
 import ThemePicker from './ThemePicker'
 import {resolveStartupProfile} from '../autoConnectSettings'
+import DiagnosticsDialog from './DiagnosticsDialog'
 
 function PreferenceSwitch({id, title, hint, checked, disabled, onChange}: {
   id:string; title:string; hint:string; checked:boolean; disabled:boolean; onChange:(value:boolean)=>void
@@ -18,7 +19,7 @@ function PreferenceSwitch({id, title, hint, checked, disabled, onChange}: {
   </div>
 }
 
-export default function DesktopPreferences({version, active, servers, selectedServerId, onProfilesRestored}: {version: string; active: boolean; servers: backend.Server[]; selectedServerId?: string; onProfilesRestored: () => Promise<void>}) {
+export default function DesktopPreferences({version, active, servers, selectedServerId, onProfilesRestored, onDialogChange}: {version: string; active: boolean; servers: backend.Server[]; selectedServerId?: string; onProfilesRestored: () => Promise<void>; onDialogChange:(open:boolean)=>void}) {
   const [settings, setSettings] = useState<DesktopSettings | null>(null)
   const theme = useSyncExternalStore(subscribeTheme, themeSnapshot)
   const [busy, setBusy] = useState(false)
@@ -31,7 +32,8 @@ export default function DesktopPreferences({version, active, servers, selectedSe
   const refresh = () => desktop().DesktopSettings().then(setSettings)
   useEffect(() => { refresh().catch(e=>setError(String(e))) }, [])
   useEffect(() => { if (active) desktop().ProfileRecoveryNotice().then(setRecovery).catch(() => {}) }, [active])
-  useEffect(() => { if (recovery === 'damaged' || recovery === 'recovered') setDiagnosticsOpen(true) }, [recovery])
+  useEffect(() => { if (!active) { setDiagnosticsOpen(false); onDialogChange(false) } }, [active, onDialogChange])
+  const showDiagnostics = (open:boolean) => { setDiagnosticsOpen(open); onDialogChange(open) }
 
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true); setError('')
@@ -99,27 +101,17 @@ export default function DesktopPreferences({version, active, servers, selectedSe
           <Icon name="tray" size={17} /> {tr('Свернуть в трей', 'Minimize to tray')}
         </button>
       </div>
-      <details className="settings-card settings-diagnostics" open={diagnosticsOpen} onToggle={e=>setDiagnosticsOpen(e.currentTarget.open)}>
-        <summary>{tr('Диагностика и восстановление', 'Diagnostics and recovery')}</summary>
-        <div className="settings-diagnostics-body">
-        {recovery && <p role="status">{recovery === 'restored' ? tr('Профили восстановлены из резервной копии.', 'Profiles restored from backup.') : recovery === 'recovered' ? tr('Профили восстановлены из резервной копии. Повреждённый файл сохранён отдельно.', 'Profiles recovered from backup. The damaged file was preserved separately.') : tr('Файл профилей повреждён; исходные данные сохранены. Импортируйте профили или восстановите резервную копию.', 'The profile file is damaged; original data was preserved. Import profiles or restore a backup.')}</p>}
-        <p className="settings-note">{tr('Отчёт не содержит ключей, адресов серверов, ссылок captcha или исходного журнала. Проверка реального VPN не выполняется.', 'The report excludes keys, server addresses, captcha URLs and raw logs. It does not perform a live VPN test.')}</p>
-        <div className="inline-actions">
-          <button className="btn" disabled={busy} onClick={()=>run(()=>desktop().ExportDiagnostics())}>{tr('Сохранить диагностику', 'Save diagnostics')}</button>
-          <button className="btn" disabled={busy} onClick={()=>{
-            if (!window.confirm(tr('Заменить список профилей последней резервной копией? Сначала отключите соединение.', 'Replace profiles with the last backup? Disconnect first.'))) return
-            run(async()=>{ await desktop().RestoreProfilesBackup(); await onProfilesRestored(); setRecovery(await desktop().ProfileRecoveryNotice()) })
-          }}>{tr('Восстановить профили', 'Restore profiles')}</button>
-        </div>
-        </div>
-      </details>
       <UpdatePreferences active={active} autoCheck={settings.autoCheckUpdates} disabled={busy} canInstall={settings.canInstallUpdates}
         onAutoCheck={enabled=>run(()=>desktop().SetAutoCheckUpdates(enabled))} />
     </>}
     <footer className="settings-about">
       <img className="app-icon" src="/freeturn.svg" alt="" width="44" height="44" />
       <div><strong>{tr('FreeTurn Desktop', 'FreeTurn Desktop')}</strong><p>Core {version||'…'} · Wails + React</p></div>
-      <button className="btn danger" onClick={()=>run(()=>desktop().Quit())}>{tr('Выйти из приложения', 'Quit application')}</button>
+      <div className="settings-footer-actions">
+        <button className="btn icon-button" disabled={!settings||busy} title={tr('Диагностика и восстановление', 'Diagnostics and recovery')} aria-label={tr('Диагностика и восстановление', 'Diagnostics and recovery')} onClick={()=>showDiagnostics(true)}><Icon name="wrench" size={18} /></button>
+        <button className="btn danger" onClick={()=>run(()=>desktop().Quit())}>{tr('Выйти из приложения', 'Quit application')}</button>
+      </div>
     </footer>
+    {active && diagnosticsOpen && <DiagnosticsDialog recovery={recovery} onClose={()=>showDiagnostics(false)} onRestored={async()=>{await onProfilesRestored();setRecovery(await desktop().ProfileRecoveryNotice());await refresh()}} />}
   </section>
 }

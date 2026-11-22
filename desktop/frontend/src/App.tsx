@@ -60,6 +60,7 @@ export default function App() {
   const [showAdd, setShowAdd] = useState(false)
   const [view, setView] = useState<View>('connect')
   const [settingsOpened, setSettingsOpened] = useState(false)
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
   const [pendingServerId, setPendingServerId] = useState<string | null>(null)
   const pending = pendingServerId !== null
   const [trafficHistory, setTrafficHistory] = useState(EMPTY_TRAFFIC_HISTORY)
@@ -214,7 +215,7 @@ export default function App() {
             onEdit={() => setView('servers')}
           />
         )}
-        {settingsOpened && <DesktopPreferences version={version} active={view === 'settings'} servers={servers} selectedServerId={selectedId||undefined} onProfilesRestored={async()=>{
+        {settingsOpened && <DesktopPreferences version={version} active={view === 'settings'} servers={servers} selectedServerId={selectedId||undefined} onDialogChange={setSettingsDialogOpen} onProfilesRestored={async()=>{
           const list = await ListServers()
           setServers(list)
           setSelectedId(list.find(s=>s.id===selectedId)?.id ?? list[0]?.id ?? null)
@@ -273,7 +274,7 @@ export default function App() {
           </div>
         )}
       </main>
-      <UpdateNotice onOpen={() => changeView('settings')} blocked={showAdd || !!status.captchaUrl || pending} />
+      <UpdateNotice onOpen={() => changeView('settings')} blocked={showAdd || settingsDialogOpen || !!status.captchaUrl || pending} />
       {showAdd && (
         <AddServerModal
           onClose={() => setShowAdd(false)}
