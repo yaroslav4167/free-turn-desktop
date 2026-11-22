@@ -37,3 +37,15 @@ test('settings expose the startup selector before enabling and submit its resolv
   assert.match(read('App.tsx'),/selectedServerId=\{selectedId\|\|undefined\}/)
   assert.doesNotMatch(preferences,/\bConnect\(/)
 })
+
+test('startup profile and switch share a compact row without hiding the disabled-mode selector', () => {
+  const preferences=readFileSync(new URL('../src/components/DesktopPreferences.tsx',import.meta.url),'utf8')
+  const row=preferences.slice(preferences.indexOf('<div className="preference-row autoconnect-row">'),preferences.indexOf('{missingStartupProfile&&<p id="startup-profile-warning"'))
+  assert.match(row,/className="autoconnect-controls"/)
+  assert.match(row,/<select id="startup-profile" aria-label=/)
+  assert.match(row,/<input id="connect-at-startup" type="checkbox" role="switch"/)
+  assert.ok(row.indexOf('<select')<row.indexOf('<input'))
+  assert.doesNotMatch(row,/disabled=\{[^}]*!settings.autoConnect[^}]*\}[^>]*onChange=\{e=>run/)
+  const css=readFileSync(new URL('../src/style.css',import.meta.url),'utf8')
+  assert.match(css,/\.autoconnect-row\s*\{[^}]*flex-wrap: wrap/)
+})

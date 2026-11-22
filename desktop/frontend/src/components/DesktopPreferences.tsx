@@ -72,18 +72,21 @@ export default function DesktopPreferences({version, active, servers, selectedSe
         <PreferenceSwitch id="start-at-login" title={tr('Запускать вместе с системой', 'Start at login')}
           hint={tr('При входе в систему. Автоподключение настраивается отдельно ниже.', 'When signing in. Automatic connection is configured separately below.')}
           checked={settings.autostart} disabled={busy||!settings.supported} onChange={value=>run(()=>desktop().SetAutostart(value))} />
-        <PreferenceSwitch id="connect-at-startup" title={tr('Подключаться при запуске', 'Connect on startup')}
-          hint={tr('Одна попытка при запуске приложения. Проверка VK может потребовать действий пользователя; при ошибке подключитесь вручную.', 'One attempt when the app starts. VK verification may require user action; reconnect manually after a failure.')}
-          checked={settings.autoConnect} disabled={busy||(!startupProfileId&&!settings.autoConnect)}
-          onChange={value=>run(()=>desktop().SetAutoConnect(value,value?startupProfileId:settings.autoConnectServerId))} />
-        {(settings.autoConnect || servers.length>0) && <div className="field autoconnect-profile">
-          <FieldLabel htmlFor="startup-profile" label={tr('Профиль автоподключения', 'Startup connection profile')} hint={tr('Используется только при запуске приложения. Выключение автоподключения не удаляет выбранный профиль.', 'Used only at app startup. Disabling auto-connect does not remove the selected profile.')} />
-          <select id="startup-profile" value={settings.autoConnect&&missingStartupProfile?'':startupProfileId} disabled={busy||!startupProfileId} onChange={e=>run(()=>desktop().SetAutoConnect(settings.autoConnect,e.target.value))}>
-            <option value="" disabled>{tr('Выберите профиль', 'Select a profile')}</option>
-            {servers.filter(s=>s.id.trim()).map(s=><option key={s.id} value={s.id}>{s.name||s.peer||s.id}</option>)}
-          </select>
-          {missingStartupProfile&&<p className="settings-note" role="status">{tr('Сохранённый профиль недоступен. Проверьте профиль автоподключения.', 'The saved profile is unavailable. Check the startup connection profile.')}</p>}
-        </div>}
+        <div className="preference-row autoconnect-row">
+          <FieldLabel htmlFor="connect-at-startup" label={tr('Подключаться при запуске', 'Connect on startup')}
+            hint={<>{tr('Одна попытка при запуске приложения. Проверка VK может потребовать действий пользователя; при ошибке подключитесь вручную.', 'One attempt when the app starts. VK verification may require user action; reconnect manually after a failure.')} {' '}{tr('Используется только при запуске приложения. Выключение автоподключения не удаляет выбранный профиль.', 'Used only at app startup. Disabling auto-connect does not remove the selected profile.')}</>} />
+          <div className="autoconnect-controls">
+            {(settings.autoConnect || servers.length>0) && <select id="startup-profile" aria-label={tr('Профиль автоподключения', 'Startup connection profile')}
+              aria-describedby={missingStartupProfile?'startup-profile-warning':undefined}
+              value={settings.autoConnect&&missingStartupProfile?'':startupProfileId} disabled={busy||!startupProfileId} onChange={e=>run(()=>desktop().SetAutoConnect(settings.autoConnect,e.target.value))}>
+              <option value="" disabled>{tr('Выберите профиль', 'Select a profile')}</option>
+              {servers.filter(s=>s.id.trim()).map(s=><option key={s.id} value={s.id}>{s.name||s.peer||s.id}</option>)}
+            </select>}
+            <input id="connect-at-startup" type="checkbox" role="switch" checked={settings.autoConnect} disabled={busy||(!startupProfileId&&!settings.autoConnect)}
+              onChange={e=>{const value=e.target.checked;run(()=>desktop().SetAutoConnect(value,value?startupProfileId:settings.autoConnectServerId))}} />
+          </div>
+        </div>
+        {missingStartupProfile&&<p id="startup-profile-warning" className="settings-note" role="status">{tr('Сохранённый профиль недоступен. Проверьте профиль автоподключения.', 'The saved profile is unavailable. Check the startup connection profile.')}</p>}
         {settings.autoConnectError&&<div className="notice error" role="alert">{settings.autoConnectError}</div>}
         <PreferenceSwitch id="close-to-tray" title={tr('Сворачивать в трей при закрытии', 'Minimize to tray on close')}
           hint={tr('Закрытие окна не прерывает соединение. Выход — через меню трея.', 'Closing the window keeps the connection active. Quit using the tray menu.')}
