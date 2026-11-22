@@ -101,7 +101,7 @@ WireGuard и AmneziaWG через TURN — с понятным интерфей�
 перезапуска VPN; системный режим реагирует на смену темы ОС.
 [Пример светлой темы](docs/screenshots/settings-light.png) — браузерный макет с демонстрационными данными.
 
-В текущей ветке `main` добавлена включённая по умолчанию опция
+Начиная с v3.0.9 доступна включённая по умолчанию опция
 **«Локальная сеть в обход VPN»** в списках маршрутизации профиля: доступ к
 локальным устройствам и частным сетям идёт обычными маршрутами ОС. Её можно
 выключить, если частные адреса нужны через VPN. VPN-DNS сохраняется как
@@ -109,7 +109,6 @@ WireGuard и AmneziaWG через TURN — с понятным интерфей�
 [локальная и корпоративная сеть](docs/local-network-routing.md).
 [Пример переключателя](docs/screenshots/local-network-routing.png) — браузерный
 предпросмотр с синтетическим профилем, без подключения к реальной сети.
-Это изменение пока не входит в v3.0.8.
 
 ## Скачать
 
@@ -227,20 +226,20 @@ v3.0.6). Если окно недоступно, используется вне
 **Linux:** установите пакеты разработки GTK3 и WebKit2GTK 4.1, затем выполните:
 
 ```sh
-VERSION=v3.0.8 sh packaging/linux/build-desktop.sh
+VERSION=v3.0.9 sh packaging/linux/build-desktop.sh
 ```
 
 **Windows:** установите нативные зависимости Wails и запустите в PowerShell 7:
 
 ```powershell
-$env:RELEASE_TAG = 'v3.0.8'
+$env:RELEASE_TAG = 'v3.0.9'
 ./packaging/windows/build-desktop.ps1
 ```
 
 **macOS:** установите Xcode Command Line Tools, затем выполните:
 
 ```sh
-RELEASE_TAG=v3.0.8 sh packaging/macos/build-desktop.sh
+RELEASE_TAG=v3.0.9 sh packaging/macos/build-desktop.sh
 ```
 
 `UPDATE_REPOSITORY` по умолчанию указывает на `yaroslav4167/free-turn-desktop`.
