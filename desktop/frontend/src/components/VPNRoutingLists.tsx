@@ -1,6 +1,8 @@
 import {backend} from '../api'
 import {tr} from '../language'
 import InfoTip from './InfoTip'
+import FieldLabel from './FieldLabel'
+import {bypassLocalNetworks, withLocalNetworkBypass} from '../localNetworkRouting'
 
 type RouteList = backend.Server['routingLists'][number]
 
@@ -19,6 +21,11 @@ export default function VPNRoutingLists({server, disabled, onChange}: {
         <InfoTip label={tr('О режимах списков маршрутизации')}>
         {tr('Белый список: только указанные адреса через VPN. Чёрный: указанные адреса в обход VPN. Белые списки объединяются, чёрные исключения имеют приоритет над белыми. Без включённых белых списков используется весь диапазон AllowedIPs профиля. Правила действуют только во встроенном VPN, не в режиме реле или отдельном CLI-клиенте.', 'Whitelist: only listed addresses use VPN. Blacklist: listed addresses bypass VPN. Whitelists are combined; blacklist exclusions take priority. With no enabled whitelist, the full profile AllowedIPs range is used. Rules apply only to the built-in VPN, not relay mode or the separate CLI client.')}
         </InfoTip>
+      </div>
+      <div className="preference-row local-network-routing">
+        <FieldLabel htmlFor="bypass-local-networks" label={tr('Локальная сеть в обход VPN', 'Bypass VPN for local networks')}
+          hint={tr('По умолчанию включено: локальные и частные IPv4/IPv6-адреса идут в обход VPN. DNS профиля — исключение и остаётся через VPN. Для внутренних доменов нужен корпоративный DNS; публичные подсети за шлюзом добавьте в чёрный список. Если локальные адреса нужны через VPN, выключите опцию. Сохраните профиль и переподключитесь.', 'Enabled by default: local and private IPv4/IPv6 addresses bypass VPN. Profile DNS is an exception and remains reachable through VPN. Internal domain names need corporate DNS; add public subnets behind a gateway to a blacklist. Disable this option if local addresses must use VPN. Save and reconnect to apply.')} />
+        <input id="bypass-local-networks" type="checkbox" role="switch" checked={bypassLocalNetworks(server)} disabled={disabled} onChange={e=>onChange(withLocalNetworkBypass(server,e.target.checked))} />
       </div>
       {lists.map((list, index) => (
         <fieldset className="routing-list" key={index} disabled={disabled}>
@@ -64,7 +71,7 @@ export default function VPNRoutingLists({server, disabled, onChange}: {
         {' '}
         <InfoTip label={tr('Об ограничениях маршрутизации')}>
           {tr('Домены разрешаются при подключении согласно DNS-режиму профиля. В Auto сначала используется системный DNS или заданные резолверы; при сбое — DoH. Изменение IP требует переподключения. Указывайте точные имена, без https://, путей и *. Поддомены добавляются отдельно. Сайты на одном IP могут попадать под одно правило; собственный DNS/DoH браузера может дать другие IP. Фильтруются только диапазоны AllowedIPs конфигурации WireGuard: например, при наличии только IPv4 правила не охватывают IPv6. DNS-серверы профиля остаются служебными VPN-маршрутами даже при чёрном исключении.')}
-          <p>{tr('SSH следует маршрутам профиля: для доступа через VPN включите адрес VPS в VPN-маршруты. Соединения самого реле идут через физический интерфейс. Это маршрутизация, не блокировщик и не защита от утечек.')}</p>
+          <p>{tr('SSH следует маршрутам профиля: для доступа через VPN включите адрес VPS в VPN-маршруты. Для частного адреса также отключите обход локальной сети. Соединения самого реле идут через физический интерфейс. Это маршрутизация, не блокировщик и не защита от утечек.')}</p>
         </InfoTip>
       </p>
     </section>

@@ -1700,3 +1700,4 @@ button:disabled {
 .release-history-entry time { float: right; margin-left: 12px; color: var(--text-dim); font-size: 12px; }
 .release-history-entry .release-notes-body { max-height: none; min-height: 0; padding: 0; overflow: visible; }
 .release-history-entry > .settings-note { padding-bottom: 12px; }
+.local-network-routing { margin-bottom: 12px; }

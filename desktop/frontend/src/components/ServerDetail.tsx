@@ -9,6 +9,7 @@ import {serverDetailState} from '../serverDetailState'
 import ConnectionLoader from './ConnectionLoader'
 import InfoTip from './InfoTip'
 import ProfileCommand from './ProfileCommand'
+import {bypassLocalNetworks} from '../localNetworkRouting'
 
 
 interface Props {
@@ -125,7 +126,7 @@ export default function ServerDetail({
 
         <ServerForm value={server} onChange={onChange} />
         {isVPN && <details key={`routing-${server.id}`} className="advanced-settings">
-          <summary><strong>{tr('Списки маршрутизации VPN', 'VPN routing lists')}</strong><span>{tr('Включено: {count}', {count:server.routingLists?.filter(list=>list.enabled).length||0})}</span></summary>
+          <summary><strong>{tr('Списки маршрутизации VPN', 'VPN routing lists')}</strong><span>{bypassLocalNetworks(server) ? tr('Локальная сеть — напрямую', 'Local networks bypass VPN')+' · ' : ''}{tr('Включено: {count}', {count:server.routingLists?.filter(list=>list.enabled).length||0})}</span></summary>
           <div className="advanced-content"><VPNRoutingLists server={server} onChange={onChange} disabled={presentation.progressing || (isActive && state !== 'idle' && state !== 'error')} /></div>
         </details>}
 

@@ -112,7 +112,7 @@ func prepareHelper(params *mobile.TunnelParams) (*helperState, int, error) {
 	if params.MTU < 576 || params.MTU > 9000 {
 		return nil, -1, fmt.Errorf("invalid tunnel MTU %d", params.MTU)
 	}
-	addresses, err := parsePrefixes(params.Addresses)
+	addresses, err := parseInterfacePrefixes(params.Addresses)
 	if err != nil {
 		return nil, -1, err
 	}

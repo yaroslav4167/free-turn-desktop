@@ -109,7 +109,8 @@ export default function App() {
 
   useEffect(() => {
     const saved = servers.find((s) => s.id === selectedId) ?? null
-    setDraft(saved ? backend.Server.createFrom(saved) : null)
+    // Preserve runtime profile fields not yet present in generated bindings.
+    setDraft(saved ? {...saved, ...backend.Server.createFrom(saved)} as backend.Server : null)
   }, [selectedId, servers])
 
   const savedSelected = useMemo(() => servers.find((s) => s.id === selectedId) ?? null, [servers, selectedId])

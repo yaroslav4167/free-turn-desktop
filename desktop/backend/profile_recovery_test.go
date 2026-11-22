@@ -169,6 +169,7 @@ func TestRestoreBackupKeepsPreviousRevision(t *testing.T) {
 func TestVPNProfileTransferPreservesKeysAndConnectionOptions(t *testing.T) {
 	s := testProfileStore(t)
 	p := ownerServer()
+	p.RouteLocalNetworks = true
 	p.ObfKey = strings.Repeat("ab", 32)
 	p.WgClientConf = guestConf()
 	p.ConnMode = ConnModeVPN
@@ -185,8 +186,37 @@ func TestVPNProfileTransferPreservesKeysAndConnectionOptions(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := profiles[0]
-	if got.WgClientConf != p.WgClientConf || got.ObfKey != p.ObfKey || got.ConnMode != p.ConnMode || got.ManualCaptcha != p.ManualCaptcha || got.DNSMode != p.DNSMode || got.VKLinks[0] != p.VKLinks[0] {
+	if got.WgClientConf != p.WgClientConf || got.ObfKey != p.ObfKey || got.ConnMode != p.ConnMode || got.ManualCaptcha != p.ManualCaptcha || got.DNSMode != p.DNSMode || got.VKLinks[0] != p.VKLinks[0] || !got.RouteLocalNetworks {
 		t.Fatal("portable connection options changed")
+	}
+}
+
+func TestLANBypassDefaultsForOldProfilesAndPreservesExplicitOptOut(t *testing.T) {
+	s := testProfileStore(t)
+	if DefaultServer().RouteLocalNetworks {
+		t.Fatal("new profile should bypass LAN by default")
+	}
+	if err := os.WriteFile(s.path, []byte(`[{"id":"legacy","peer":"203.0.113.1:9000"}]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.load(); err != nil {
+		t.Fatal(err)
+	}
+	p, _ := s.Get("legacy")
+	if p.RouteLocalNetworks {
+		t.Fatal("old profile did not default to LAN bypass")
+	}
+	p.RouteLocalNetworks = true
+	if _, err := s.Save(p); err != nil {
+		t.Fatal(err)
+	}
+	loaded := &Store{path: s.path}
+	if err := loaded.load(); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := loaded.Get("legacy")
+	if !got.RouteLocalNetworks {
+		t.Fatal("explicit opt-out reset after reload")
 	}
 }
 

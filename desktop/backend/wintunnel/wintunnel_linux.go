@@ -44,6 +44,10 @@ func ConnectWithRoutes(configJSON, wgConfigText string, mtu int, routes string, 
 }
 
 func ConnectWithProgress(configJSON, wgConfigText string, mtu int, routes string, progress func(string), exclusionIPs ...string) (err error) {
+	return ConnectWithOptions(configJSON, wgConfigText, mtu, ConnectionOptions{Routes: routes}, progress, exclusionIPs...)
+}
+
+func ConnectWithOptions(configJSON, wgConfigText string, mtu int, options ConnectionOptions, progress func(string), exclusionIPs ...string) (err error) {
 	mu.Lock()
 	if active != nil || connecting {
 		mu.Unlock()
@@ -65,8 +69,8 @@ func ConnectWithProgress(configJSON, wgConfigText string, mtu int, routes string
 	if err != nil {
 		return err
 	}
-	if routes != "" {
-		params.AllowedIPs = routes
+	if err := applyConnectionOptions(params, options); err != nil {
+		return err
 	}
 	reportProgress(progress, "helper")
 	client, tunFD, dev4, dev6, err := startHelper(params)

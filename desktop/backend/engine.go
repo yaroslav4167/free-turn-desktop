@@ -134,7 +134,15 @@ func (e *Engine) Connect(srv Server) (err error) {
 			return parseErr
 		}
 		e.setProgress(generation, "routing-lists")
-		routeOverride, err = routing.Build(ctx, params.AllowedIPs, params.DNS, srv.RoutingLists, resolver, exclusions...)
+		if srv.RouteLocalNetworks {
+			routeOverride, err = routing.Build(ctx, params.AllowedIPs, params.DNS, srv.RoutingLists, resolver, exclusions...)
+		} else {
+			local, localErr := routing.LocalBypassPrefixes(ctx)
+			if localErr != nil {
+				return localErr
+			}
+			routeOverride, err = routing.BuildWithBypass(ctx, params.AllowedIPs, params.DNS, srv.RoutingLists, resolver, local, exclusions...)
+		}
 		if err != nil {
 			return fmt.Errorf("списки маршрутизации VPN: %w", err)
 		}
@@ -159,7 +167,7 @@ func (e *Engine) Connect(srv Server) (err error) {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		return wintunnel.ConnectWithProgress(cfg, srv.WgClientConf, DefaultTunnelMTU, routeOverride, func(stage string) { e.setProgress(generation, stage) }, exclusions...)
+		return wintunnel.ConnectWithOptions(cfg, srv.WgClientConf, DefaultTunnelMTU, wintunnel.ConnectionOptions{Routes: routeOverride, BypassLocalNetworks: !srv.RouteLocalNetworks}, func(stage string) { e.setProgress(generation, stage) }, exclusions...)
 	}
 	e.setProgress(generation, "relay")
 	return mobile.Start(cfg)

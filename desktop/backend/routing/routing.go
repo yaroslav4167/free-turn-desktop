@@ -149,11 +149,27 @@ type Resolver interface {
 // expanded/reassigned to another peer. Blacklists win over whitelist entries;
 // DNS server routes are retained as necessary VPN infrastructure.
 func Build(ctx context.Context, allowed, dns string, lists []List, resolver Resolver, protectedIPs ...string) (string, error) {
+	return build(ctx, allowed, dns, lists, resolver, nil, protectedIPs...)
+}
+
+// BuildWithBypass adds automatic exclusions outside user list/entry limits.
+// VPN DNS routes retain their existing service exception; other local ranges
+// take priority over whitelists. Cryptographic AllowedIPs remain unchanged.
+func BuildWithBypass(ctx context.Context, allowed, dns string, lists []List, resolver Resolver, bypass []netip.Prefix, protectedIPs ...string) (string, error) {
+	for _, prefix := range bypass {
+		if !prefix.IsValid() || prefix.Addr().Is4In6() {
+			return "", errors.New("некорректная локальная подсеть")
+		}
+	}
+	return build(ctx, allowed, dns, lists, resolver, compact(bypass), protectedIPs...)
+}
+
+func build(ctx context.Context, allowed, dns string, lists []List, resolver Resolver, bypass []netip.Prefix, protectedIPs ...string) (string, error) {
 	normalized, err := Normalize(lists)
 	if err != nil {
 		return "", err
 	}
-	if !Enabled(normalized) {
+	if !Enabled(normalized) && len(bypass) == 0 {
 		return allowed, nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -169,6 +185,7 @@ func Build(ctx context.Context, allowed, dns string, lists []List, resolver Reso
 		return "", err
 	}
 	var white, black []netip.Prefix
+	black = append(black, bypass...)
 	hasWhite := false
 	cache := map[string][]netip.Prefix{}
 	for _, list := range normalized {
@@ -231,6 +248,9 @@ func Build(ctx context.Context, allowed, dns string, lists []List, resolver Reso
 		}
 	}
 	if len(selected) == 0 {
+		if len(bypass) > 0 {
+			return "", errors.New("списки и обход локальной сети не оставляют VPN-маршрутов; проверьте правила или отключите обход, если нужен доступ к частной сети через VPN")
+		}
 		return "", errors.New("списки не оставляют ни одного VPN-маршрута в AllowedIPs; проверьте белые списки и исключения")
 	}
 	// Keep the configured VPN DNS reachable even with a narrow whitelist.

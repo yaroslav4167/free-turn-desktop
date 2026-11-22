@@ -67,6 +67,9 @@ type Server struct {
 	// WgClientConf to be set.
 	ConnMode     string         `json:"connMode,omitempty"`
 	RoutingLists []routing.List `json:"routingLists"`
+	// Missing/false means LAN bypass is enabled, including profiles saved before
+	// this option existed. True opts into routing local ranges by normal rules.
+	RouteLocalNetworks bool `json:"routeLocalNetworks"`
 
 	CreatedAt time.Time `json:"createdAt"`
 }

@@ -157,6 +157,9 @@ func ConnectWithRoutes(configJSON, wgConfigText string, mtu int, routeOverride s
 	return ConnectWithProgress(configJSON, wgConfigText, mtu, routeOverride, nil, exclusionIPs...)
 }
 func ConnectWithProgress(configJSON, wgConfigText string, mtu int, routeOverride string, progress func(string), exclusionIPs ...string) error {
+	return ConnectWithOptions(configJSON, wgConfigText, mtu, ConnectionOptions{Routes: routeOverride}, progress, exclusionIPs...)
+}
+func ConnectWithOptions(configJSON, wgConfigText string, mtu int, options ConnectionOptions, progress func(string), exclusionIPs ...string) error {
 	mu.Lock()
 	alreadyActive := active != nil
 	mu.Unlock()
@@ -179,8 +182,8 @@ func ConnectWithProgress(configJSON, wgConfigText string, mtu int, routeOverride
 	if err != nil {
 		return fmt.Errorf("parse tunnel config: %w", err)
 	}
-	if routeOverride != "" {
-		params.AllowedIPs = routeOverride
+	if err := applyConnectionOptions(params, options); err != nil {
+		return err
 	}
 
 	// Capture the machine's current (pre-tunnel) default gateway before we
