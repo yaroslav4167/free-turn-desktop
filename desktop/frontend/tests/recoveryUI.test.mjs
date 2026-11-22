@@ -38,3 +38,14 @@ test('connection progress is rendered below power button and stale polling is ca
   assert.match(connection,/active = false; clearTimeout/)
   assert.match(connection,/progressLabel\(stage\)/)
 })
+
+test('diagnostics are collapsed by default but recovery warnings expand the section', () => {
+  const settings=read('components/DesktopPreferences.tsx')
+  assert.match(settings,/\[diagnosticsOpen, setDiagnosticsOpen\] = useState\(false\)/)
+  assert.match(settings,/<details className="settings-card settings-diagnostics" open=\{diagnosticsOpen\}/)
+  assert.match(settings,/<summary>\{tr\('Диагностика и восстановление'/)
+  assert.match(settings,/recovery === 'damaged' \|\| recovery === 'recovered'\) setDiagnosticsOpen\(true\)/)
+  const panel=settings.slice(settings.indexOf('<details className="settings-card settings-diagnostics"'),settings.indexOf('</details>',settings.indexOf('<details className="settings-card settings-diagnostics"')))
+  assert.match(panel,/ExportDiagnostics\(\)/)
+  assert.match(panel,/RestoreProfilesBackup\(\)/)
+})

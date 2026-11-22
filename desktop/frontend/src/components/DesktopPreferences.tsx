@@ -24,12 +24,14 @@ export default function DesktopPreferences({version, active, servers, selectedSe
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [recovery, setRecovery] = useState('')
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
   const startupProfileId=resolveStartupProfile(servers,settings?.autoConnectServerId||'',selectedServerId)
   const savedStartupAvailable=!!settings?.autoConnectServerId&&servers.some(server=>server.id===settings.autoConnectServerId)
   const missingStartupProfile=!!settings&&!!(settings.autoConnect||settings.autoConnectServerId)&&!savedStartupAvailable
   const refresh = () => desktop().DesktopSettings().then(setSettings)
   useEffect(() => { refresh().catch(e=>setError(String(e))) }, [])
   useEffect(() => { if (active) desktop().ProfileRecoveryNotice().then(setRecovery).catch(() => {}) }, [active])
+  useEffect(() => { if (recovery === 'damaged' || recovery === 'recovered') setDiagnosticsOpen(true) }, [recovery])
 
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true); setError('')
@@ -94,8 +96,9 @@ export default function DesktopPreferences({version, active, servers, selectedSe
           <Icon name="tray" size={17} /> {tr('Свернуть в трей', 'Minimize to tray')}
         </button>
       </div>
-      <div className="settings-card">
-        <h2>{tr('Диагностика и восстановление', 'Diagnostics and recovery')}</h2>
+      <details className="settings-card settings-diagnostics" open={diagnosticsOpen} onToggle={e=>setDiagnosticsOpen(e.currentTarget.open)}>
+        <summary>{tr('Диагностика и восстановление', 'Diagnostics and recovery')}</summary>
+        <div className="settings-diagnostics-body">
         {recovery && <p role="status">{recovery === 'restored' ? tr('Профили восстановлены из резервной копии.', 'Profiles restored from backup.') : recovery === 'recovered' ? tr('Профили восстановлены из резервной копии. Повреждённый файл сохранён отдельно.', 'Profiles recovered from backup. The damaged file was preserved separately.') : tr('Файл профилей повреждён; исходные данные сохранены. Импортируйте профили или восстановите резервную копию.', 'The profile file is damaged; original data was preserved. Import profiles or restore a backup.')}</p>}
         <p className="settings-note">{tr('Отчёт не содержит ключей, адресов серверов, ссылок captcha или исходного журнала. Проверка реального VPN не выполняется.', 'The report excludes keys, server addresses, captcha URLs and raw logs. It does not perform a live VPN test.')}</p>
         <div className="inline-actions">
@@ -105,7 +108,8 @@ export default function DesktopPreferences({version, active, servers, selectedSe
             run(async()=>{ await desktop().RestoreProfilesBackup(); await onProfilesRestored(); setRecovery(await desktop().ProfileRecoveryNotice()) })
           }}>{tr('Восстановить профили', 'Restore profiles')}</button>
         </div>
-      </div>
+        </div>
+      </details>
       <UpdatePreferences active={active} autoCheck={settings.autoCheckUpdates} disabled={busy} canInstall={settings.canInstallUpdates}
         onAutoCheck={enabled=>run(()=>desktop().SetAutoCheckUpdates(enabled))} />
     </>}
