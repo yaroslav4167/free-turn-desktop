@@ -32,7 +32,7 @@ export default function ServerForm({value: s, onChange}: Props) {
         </div>
       </div>
       <div className="field">
-        <FieldLabel htmlFor={id('links')} label={tr('Ссылки на звонки VK Calls', 'VK Calls links')} hint={tr('По одной ссылке в строке. Каждая ссылка получает заданное ниже число потоков; пустые строки не учитываются. Не публикуйте ссылки в открытых журналах.', 'One link per line. Each link receives the stream count configured below; blank lines do not count. Do not publish links in public logs.')} />
+        <FieldLabel htmlFor={id('links')} label={tr('Ссылки на звонки VK Calls', 'VK Calls links')} hint={tr('В VK Звонках создайте звонок и скопируйте ссылку-приглашение. Не завершайте звонок. Вставьте по одной ссылке в строке. Каждая ссылка получает заданное ниже число потоков; пустые строки не учитываются. Не публикуйте ссылки в открытых журналах.', 'Create a call in VK Calls and copy its invitation link. Do not end the call. Paste one link per line. Each link receives the stream count configured below; blank lines do not count. Do not publish links in public logs.')} />
         <textarea id={id('links')} value={(s.vkLinks ?? []).join('\n')}
           onChange={(e) => patch({vkLinks: e.target.value.split('\n')})} placeholder="https://vk.ru/call/join/..." />
       </div>

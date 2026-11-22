@@ -90,7 +90,7 @@
     "Адрес сервера": "Server address",
     "Публичный адрес реле и его порт: домен:порт или IP:порт. Для сервера с меняющимся IP лучше использовать домен с актуальной DNS-записью.": "Public relay address and port: domain:port or IP:port. A domain with an up-to-date DNS record is preferable when the IP can change.",
     "Ссылки на звонки VK Calls": "VK Calls links",
-    "По одной ссылке в строке. Каждая ссылка получает заданное ниже число потоков; пустые строки не учитываются. Не публикуйте ссылки в открытых журналах.": "One link per line. Each link receives the stream count configured below; blank lines do not count. Do not publish links in public logs.",
+    "В VK Звонках создайте звонок и скопируйте ссылку-приглашение. Не завершайте звонок. Вставьте по одной ссылке в строке. Каждая ссылка получает заданное ниже число потоков; пустые строки не учитываются. Не публикуйте ссылки в открытых журналах.": "Create a call in VK Calls and copy its invitation link. Do not end the call. Paste one link per line. Each link receives the stream count configured below; blank lines do not count. Do not publish links in public logs.",
     "Производительность": "Performance",
     "Маскировка включена: проверьте ключ из профиля сервера.": "Obfuscation is enabled: check the key from the server profile.",
     "Открыть параметры": "Open parameters",
