@@ -13,7 +13,7 @@ WireGuard и AmneziaWG через TURN — с понятным интерфей�
 [![Проверки сборки](https://github.com/yaroslav4167/free-turn-desktop/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/yaroslav4167/free-turn-desktop/actions/workflows/build.yml)
 
 **[Скачать](https://github.com/yaroslav4167/free-turn-desktop/releases/latest)** ·
-[Возможности](#возможности) · [Установка](#установка) · [Сборка](#сборка-из-исходников)
+[Возможности](#возможности) · [Установка](#установка) · [Сборка](#сборка-из-исходников) · [Поддержать проект](#поддержать-проект)
 
 <img src="docs/screenshots/interface-collage.png" alt="Интерфейс FreeTurn: подключение и трафик, профили серверов и настройки приложения" width="1200">
 
@@ -248,6 +248,19 @@ go run scripts/render-readme-collage.go
 ```
 
 </details>
+
+## Поддержать проект
+
+Если FreeTurn оказался полезен, можно поддержать его разработку:
+
+- **ЮMoney:** [поддержать проект](https://yoomoney.ru/to/410015657486824).
+- **GRAM:**
+
+  ```text
+  UQCouj5CgDFgNgYjoENIll3ROSYkwZOnX0P_iakUDk6FUWPc
+  ```
+
+Спасибо за поддержку!
 
 ## Документация и благодарности
 
