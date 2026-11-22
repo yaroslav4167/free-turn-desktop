@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/samosvalishe/free-turn-proxy/desktop/backend"
 	"github.com/samosvalishe/free-turn-proxy/desktop/locale"
@@ -16,21 +17,13 @@ func (a *App) ExportProfile(id string) error {
 	if err != nil {
 		return err
 	}
-	answer, err := wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
-		Type:          wailsruntime.WarningDialog,
-		Title:         locale.Text("Экспорт профиля", "Export profile"),
-		Message:       locale.Text("Файл содержит ключи подключения VPN. Не публикуйте его. SSH-пароли и пути к SSH-ключам не экспортируются.", "The file contains VPN connection keys. Do not publish it. SSH credentials and key paths are excluded."),
-		Buttons:       []string{locale.Text("Экспортировать", "Export"), locale.Text("Отмена", "Cancel")},
-		DefaultButton: locale.Text("Отмена", "Cancel"), CancelButton: locale.Text("Отмена", "Cancel"),
-	})
-	if err != nil || answer != locale.Text("Экспортировать", "Export") {
-		return err
-	}
-	path, err := wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{Title: locale.Text("Экспорт профиля", "Export profile"), DefaultFilename: "FreeTurn-profile.json", Filters: []wailsruntime.FileFilter{{DisplayName: "FreeTurn JSON", Pattern: "*.json"}}})
-	if err != nil || path == "" {
-		return err
-	}
-	return writePrivateFile(path, data)
+	options, affirmative := profileExportConfirmation(runtime.GOOS)
+	return exportProfileFile(data, affirmative,
+		func() (string, error) { return wailsruntime.MessageDialog(a.ctx, options) },
+		func() (string, error) {
+			return wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{Title: locale.Text("Экспорт профиля", "Export profile"), DefaultFilename: "FreeTurn-profile.json", CanCreateDirectories: true, Filters: []wailsruntime.FileFilter{{DisplayName: "FreeTurn JSON", Pattern: "*.json"}}})
+		},
+		writePrivateFile)
 }
 
 func (a *App) ImportProfiles() ([]backend.Server, error) {
