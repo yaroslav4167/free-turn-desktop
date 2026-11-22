@@ -65,10 +65,11 @@ func TestIconChangesNotifyTheTrayHost(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer observer.Close()
-	normal, _ := applicationIcon(false)
-	light, _ := applicationIcon(true)
+	normal, _ := statusPixmaps(Idle, false, 0)
+	light, _ := statusPixmaps(Idle, true, 0)
 	properties, err := prop.Export(connection, "/StatusNotifierItem", prop.Map{itemInterface: {
 		"IconPixmap": {Value: normal, Writable: false, Emit: prop.EmitFalse},
+		"ToolTip":    {Value: statusToolTip{Title: "FreeTurn", IconPixmap: []iconPixmap{}}, Writable: false, Emit: prop.EmitFalse},
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -78,7 +79,7 @@ func TestIconChangesNotifyTheTrayHost(t *testing.T) {
 	if err := observer.AddMatchSignal(dbus.WithMatchObjectPath("/StatusNotifierItem"), dbus.WithMatchInterface(itemInterface), dbus.WithMatchMember("NewIcon")); err != nil {
 		t.Fatal(err)
 	}
-	tray := &Tray{conn: connection, iconProperties: properties, icons: [2][]iconPixmap{normal, light}}
+	tray := &Tray{conn: connection, iconProperties: properties}
 	for _, preferLight := range []bool{true, false} {
 		tray.updateIcon(preferLight)
 		select {
@@ -100,6 +101,67 @@ func TestIconChangesNotifyTheTrayHost(t *testing.T) {
 		}
 		if !reflect.DeepEqual(got, want) {
 			t.Fatal("tray host read the wrong icon variant")
+		}
+	}
+	status := Status{State: "connected", Streams: 3, Total: 12, HasCaptcha: true}
+	tray.UpdateStatus(status, 0)
+	select {
+	case <-signals:
+	case <-time.After(2 * time.Second):
+		t.Fatal("status icon did not notify tray host")
+	}
+	tray.updateIcon(true)
+	select {
+	case <-signals:
+	case <-time.After(2 * time.Second):
+		t.Fatal("theme switch lost current status")
+	}
+	var current dbus.Variant
+	if err := observer.Object(connection.Names()[0], "/StatusNotifierItem").Call("org.freedesktop.DBus.Properties.Get", 0, itemInterface, "IconPixmap").Store(&current); err != nil {
+		t.Fatal(err)
+	}
+	var got []iconPixmap
+	if err := current.Store(&got); err != nil {
+		t.Fatal(err)
+	}
+	want, _ := statusPixmaps(Attention, true, 0)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatal("theme switch reset the working VPN/captcha badge")
+	}
+	var tooltip dbus.Variant
+	if err := observer.Object(connection.Names()[0], "/StatusNotifierItem").Call("org.freedesktop.DBus.Properties.Get", 0, itemInterface, "ToolTip").Store(&tooltip); err != nil {
+		t.Fatal(err)
+	}
+	if tooltip.Signature().String() != "(sa(iiay)ss)" {
+		t.Fatal("invalid tooltip signature")
+	}
+	var tip statusToolTip
+	if err := tooltip.Store(&tip); err != nil || tip.Description != status.Description() {
+		t.Fatalf("wrong tooltip: %+v, %v", tip, err)
+	}
+	tray.UpdateStatus(status, 7)
+	select {
+	case <-signals:
+		t.Fatal("static status unnecessarily rerendered")
+	case <-time.After(40 * time.Millisecond):
+	}
+}
+
+func TestReducedMotionPreferences(t *testing.T) {
+	for _, test := range []struct {
+		namespace, key string
+		value          interface{}
+		want, valid    bool
+	}{
+		{"org.gnome.desktop.interface", "enable-animations", false, true, true},
+		{"org.gnome.desktop.interface", "enable-animations", dbus.MakeVariant(true), false, true},
+		{"org.kde.kdeglobals.KDE", "AnimationDurationFactor", float64(0), true, true},
+		{"org.kde.kdeglobals.KDE", "AnimationDurationFactor", float64(1), false, true},
+		{"unknown", "enable-animations", false, false, false},
+	} {
+		got, valid := motionPreference(test.namespace, test.key, test.value)
+		if got != test.want || valid != test.valid {
+			t.Fatalf("motion preference: %v %v", got, valid)
 		}
 	}
 }

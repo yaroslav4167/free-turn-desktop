@@ -54,23 +54,93 @@ func loadWindowsTrayIcon(light bool) (windows.Handle, error) {
 }
 
 func (t *Tray) refreshIcon() {
+	if t.stopping.Load() {
+		return
+	}
+	t.refreshMotion()
 	light := preferLightWindowsTrayIcon()
-	if light == t.lightIcon {
+	t.statusMu.Lock()
+	status, frame := t.status, t.frame
+	t.statusMu.Unlock()
+	if t.reducedMotion.Load() {
+		frame = 0
+	}
+	size, _, _ := pGetSystemMetrics.Call(49)
+	if size < 16 || size > 256 {
+		size = 16
+	}
+	key := iconKey{status.Phase(), light, animationFrame(status.Phase(), frame), int(size)}
+	tip := status.Tooltip()
+	if key == t.lastKey && tip == t.lastTip {
 		return
 	}
-	icon, err := loadWindowsTrayIcon(light)
-	if err != nil {
-		return
-	}
-	nid := notifyIconDataW{hWnd: t.hwnd, uID: 1, uFlags: nifIcon, hIcon: icon}
+	var icon windows.Handle
+	nid := notifyIconDataW{hWnd: t.hwnd, uID: 1, uFlags: nifTip}
 	nid.cbSize = uint32(unsafe.Sizeof(nid))
-	if ret, _, _ := pShell_NotifyIconW.Call(uintptr(nimModify), uintptr(unsafe.Pointer(&nid))); ret == 0 {
-		pDestroyIcon.Call(uintptr(icon))
+	if key != t.lastKey {
+		var err error
+		icon, err = createWindowsStatusIcon(key)
+		if err != nil {
+			return
+		}
+		nid.uFlags |= nifIcon
+		nid.hIcon = icon
+	}
+	chars, err := windows.UTF16FromString(tip)
+	if err != nil {
+		if icon != 0 {
+			pDestroyIcon.Call(uintptr(icon))
+		}
 		return
 	}
-	previous := t.hIcon
-	t.hIcon, t.lightIcon = icon, light
-	if previous != 0 {
-		pDestroyIcon.Call(uintptr(previous))
+	copy(nid.szTip[:127], chars)
+	if ret, _, _ := pShell_NotifyIconW.Call(uintptr(nimModify), uintptr(unsafe.Pointer(&nid))); ret == 0 {
+		if icon != 0 {
+			pDestroyIcon.Call(uintptr(icon))
+		}
+		return
 	}
+	if icon != 0 {
+		previous := t.hIcon
+		t.hIcon = icon
+		if previous != 0 {
+			pDestroyIcon.Call(uintptr(previous))
+		}
+	}
+	t.lightIcon, t.lastKey, t.lastTip = light, key, tip
+}
+
+func createWindowsStatusIcon(key iconKey) (windows.Handle, error) {
+	data, err := statusPNG(key.Phase, key.Light, key.Frame, key.Size)
+	if err != nil {
+		return 0, err
+	}
+	handle, _, callErr := pCreateIconFromResourceEx.Call(uintptr(unsafe.Pointer(&data[0])), uintptr(len(data)), 1, 0x00030000, uintptr(key.Size), uintptr(key.Size), 0)
+	runtime.KeepAlive(data)
+	if handle == 0 {
+		return 0, fmt.Errorf("create status tray icon: %v", callErr)
+	}
+	return windows.Handle(handle), nil
+}
+
+func (t *Tray) restoreIcon() {
+	if t.stopping.Load() || t.hIcon == 0 {
+		return
+	}
+	t.statusMu.Lock()
+	tip := t.status.Tooltip()
+	t.statusMu.Unlock()
+	nid := notifyIconDataW{hWnd: t.hwnd, uID: 1, uFlags: nifIcon | nifMessage | nifTip, uCallbackMessage: wmTrayIcon, hIcon: t.hIcon}
+	nid.cbSize = uint32(unsafe.Sizeof(nid))
+	chars, _ := windows.UTF16FromString(tip)
+	copy(nid.szTip[:127], chars)
+	if ret, _, _ := pShell_NotifyIconW.Call(uintptr(nimAdd), uintptr(unsafe.Pointer(&nid))); ret != 0 {
+		t.refreshIcon()
+	}
+}
+
+func (t *Tray) refreshMotion() {
+	var enabled int32 = 1
+	result, _, _ := user32.NewProc("SystemParametersInfoW").Call(0x1042, 0, uintptr(unsafe.Pointer(&enabled)), 0) // SPI_GETCLIENTAREAANIMATION
+	t.reducedMotion.Store(result != 0 && enabled == 0)
 }

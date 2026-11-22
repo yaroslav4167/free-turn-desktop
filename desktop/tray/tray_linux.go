@@ -30,8 +30,15 @@ type Tray struct {
 	once           sync.Once
 	registered     atomic.Bool
 	iconProperties *prop.Properties
-	icons          [2][]iconPixmap
 	lightIcon      bool
+	iconMu         sync.Mutex
+	status         Status
+	frame          int
+	lastKey        iconKey
+	lastTip        string
+	iconReady      bool
+	closing        bool
+	reducedMotion  atomic.Bool
 }
 
 type trayItem struct{ tray *Tray }
@@ -177,7 +184,7 @@ func Start(title string, onShow, onQuit func()) (*Tray, error) {
 	// Theme support is optional: an unavailable portal must not disable the tray.
 	_ = conn.AddMatchSignal(dbus.WithMatchSender(portalName), dbus.WithMatchObjectPath("/org/freedesktop/portal/desktop"), dbus.WithMatchInterface(settingsInterface), dbus.WithMatchMember("SettingChanged"))
 	_ = conn.AddMatchSignal(dbus.WithMatchObjectPath("/org/freedesktop/DBus"), dbus.WithMatchInterface("org.freedesktop.DBus"), dbus.WithMatchMember("NameOwnerChanged"), dbus.WithMatchArg(0, portalName))
-	t := &Tray{conn: conn, onShow: onShow, onQuit: onQuit, icons: [2][]iconPixmap{normalIcon, lightIcon}, lightIcon: preferLightTrayIcon(conn)}
+	t := &Tray{conn: conn, onShow: onShow, onQuit: onQuit, lightIcon: preferLightTrayIcon(conn)}
 	icon := normalIcon
 	if t.lightIcon {
 		icon = lightIcon
@@ -191,7 +198,7 @@ func Start(title string, onShow, onQuit func()) (*Tray, error) {
 		return fail(err)
 	}
 	for path, iface := range map[dbus.ObjectPath]introspect.Interface{
-		"/StatusNotifierItem": {Name: itemInterface, Methods: introspect.Methods(item), Signals: []introspect.Signal{{Name: "NewIcon"}}},
+		"/StatusNotifierItem": {Name: itemInterface, Methods: introspect.Methods(item), Signals: []introspect.Signal{{Name: "NewIcon"}, {Name: "NewToolTip"}}},
 		"/MenuBar":            {Name: menuInterface, Methods: introspect.Methods(menu)},
 	} {
 		if err := conn.Export(introspect.NewIntrospectable(&introspect.Node{Interfaces: []introspect.Interface{iface, prop.IntrospectData}}), path, "org.freedesktop.DBus.Introspectable"); err != nil {
@@ -205,12 +212,17 @@ func Start(title string, onShow, onQuit func()) (*Tray, error) {
 		"Category": readonly("Communications"), "Id": readonly("freeturn-desktop"),
 		"Title": readonly(title), "Status": readonly("Active"),
 		"IconName": readonly(""), "IconPixmap": {Value: icon, Writable: false, Emit: prop.EmitFalse}, "ItemIsMenu": readonly(false),
-		"Menu": readonly(dbus.ObjectPath("/MenuBar")),
+		"Menu":    readonly(dbus.ObjectPath("/MenuBar")),
+		"ToolTip": {Value: statusToolTip{Title: "FreeTurn", Description: (Status{}).Description(), IconPixmap: []iconPixmap{}}, Writable: false, Emit: prop.EmitFalse},
 	}})
 	if err != nil {
 		return fail(err)
 	}
 	t.iconProperties = iconProperties
+	if reduced, ok := readReducedMotion(conn); ok {
+		t.reducedMotion.Store(reduced)
+	}
+	t.UpdateStatus(Status{}, 0)
 	if _, err := prop.Export(conn, "/MenuBar", prop.Map{menuInterface: {
 		"Version": readonly(uint32(3)), "TextDirection": readonly("ltr"),
 		"Status": readonly("normal"), "IconThemePath": readonly([]string{}),
@@ -226,11 +238,22 @@ func Start(title string, onShow, onQuit func()) (*Tray, error) {
 	_ = t.register()
 	go func() {
 		for signal := range signals {
+			if signal.Name == settingsInterface+".SettingChanged" && len(signal.Body) == 3 {
+				if reduced, ok := motionPreference(signal.Body[0], signal.Body[1], signal.Body[2]); ok {
+					if current, known := readReducedMotion(conn); known {
+						reduced = current
+					}
+					t.reducedMotion.Store(reduced)
+				}
+			}
 			if signal.Name == settingsInterface+".SettingChanged" && len(signal.Body) == 3 && signal.Body[0] == appearanceNamespace && signal.Body[1] == "color-scheme" {
 				t.updateIcon(lightIconForScheme(signal.Body[2], themeFallback()))
 			}
 			if signal.Name == "org.freedesktop.DBus.NameOwnerChanged" && len(signal.Body) == 3 && signal.Body[0] == portalName {
 				if signal.Body[2] != "" {
+					if reduced, ok := readReducedMotion(conn); ok {
+						t.reducedMotion.Store(reduced)
+					}
 					t.updateIcon(preferLightTrayIcon(conn))
 				} else {
 					t.updateIcon(themeFallback())
@@ -274,4 +297,49 @@ func (t *Tray) Available() bool {
 	return err == nil && host
 }
 
-func (t *Tray) Close() { t.once.Do(func() { _ = t.conn.Close() }) }
+func (t *Tray) Close() {
+	t.once.Do(func() { t.iconMu.Lock(); t.closing = true; t.iconMu.Unlock(); _ = t.conn.Close() })
+}
+
+type statusToolTip struct {
+	IconName           string
+	IconPixmap         []iconPixmap
+	Title, Description string
+}
+
+func (t *Tray) ReducedMotion() bool { return t == nil || t.reducedMotion.Load() }
+
+func (t *Tray) UpdateStatus(status Status, frame int) {
+	if t == nil {
+		return
+	}
+	t.iconMu.Lock()
+	defer t.iconMu.Unlock()
+	t.status = status
+	t.frame = frame
+	t.renderStatusLocked()
+}
+
+func (t *Tray) renderStatusLocked() {
+	if t.closing || t.conn == nil || t.iconProperties == nil {
+		return
+	}
+	frame := t.frame
+	if t.reducedMotion.Load() {
+		frame = 0
+	}
+	key := iconKey{t.status.Phase(), t.lightIcon, animationFrame(t.status.Phase(), frame), 64}
+	if !t.iconReady || key != t.lastKey {
+		if icons, err := statusPixmaps(key.Phase, key.Light, key.Frame); err == nil {
+			t.iconProperties.SetMust(itemInterface, "IconPixmap", icons)
+			_ = t.conn.Emit("/StatusNotifierItem", itemInterface+".NewIcon")
+			t.lastKey = key
+			t.iconReady = true
+		}
+	}
+	if description := t.status.Description(); description != t.lastTip {
+		t.iconProperties.SetMust(itemInterface, "ToolTip", statusToolTip{Title: "FreeTurn", Description: description, IconPixmap: []iconPixmap{}})
+		_ = t.conn.Emit("/StatusNotifierItem", itemInterface+".NewToolTip")
+		t.lastTip = description
+	}
+}

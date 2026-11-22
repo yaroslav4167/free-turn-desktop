@@ -16,4 +16,6 @@ func Start(title string, onShow func(), onQuit func()) (*Tray, error) {
 func (t *Tray) Close() {
 }
 
-func (t *Tray) Available() bool { return false }
+func (t *Tray) Available() bool          { return false }
+func (t *Tray) UpdateStatus(Status, int) {}
+func (t *Tray) ReducedMotion() bool      { return true }

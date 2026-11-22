@@ -60,16 +60,52 @@ func preferLightTrayIcon(conn *dbus.Conn) bool {
 }
 
 func (t *Tray) updateIcon(light bool) {
+	t.iconMu.Lock()
+	defer t.iconMu.Unlock()
 	if t.lightIcon == light {
 		return
 	}
 	t.lightIcon = light
-	index := 0
-	if light {
-		index = 1
-	}
 	// StatusNotifierItem hosts refresh IconPixmap on NewIcon. The property is
 	// read-only to clients but mutable internally (not annotated as constant).
-	t.iconProperties.SetMust(itemInterface, "IconPixmap", t.icons[index])
-	_ = t.conn.Emit("/StatusNotifierItem", itemInterface+".NewIcon")
+	t.renderStatusLocked()
+}
+
+func motionPreference(namespace, key, value interface{}) (bool, bool) {
+	for i := 0; i < 8; i++ {
+		variant, ok := value.(dbus.Variant)
+		if !ok {
+			break
+		}
+		value = variant.Value()
+	}
+	if namespace == "org.gnome.desktop.interface" && key == "enable-animations" {
+		if enabled, ok := value.(bool); ok {
+			return !enabled, true
+		}
+	}
+	if namespace == "org.kde.kdeglobals.KDE" && key == "AnimationDurationFactor" {
+		if factor, ok := value.(float64); ok {
+			return factor <= 0, true
+		}
+	}
+	return false, false
+}
+
+func readReducedMotion(conn *dbus.Conn) (bool, bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	known := false
+	for _, pref := range [][2]string{{"org.gnome.desktop.interface", "enable-animations"}, {"org.kde.kdeglobals.KDE", "AnimationDurationFactor"}} {
+		var value dbus.Variant
+		if err := conn.Object(portalName, "/org/freedesktop/portal/desktop").CallWithContext(ctx, settingsInterface+".Read", 0, pref[0], pref[1]).Store(&value); err == nil {
+			if reduced, ok := motionPreference(pref[0], pref[1], value); ok {
+				known = true
+				if reduced {
+					return true, true
+				}
+			}
+		}
+	}
+	return false, known
 }

@@ -36,3 +36,22 @@ func applicationIcon(light bool) ([]iconPixmap, error) {
 	}
 	return []iconPixmap{{int32(bounds.Dx()), int32(bounds.Dy()), pixels}}, nil
 }
+
+func statusPixmaps(phase Phase, light bool, frame int) ([]iconPixmap, error) {
+	var result []iconPixmap
+	for _, size := range []int{16, 20, 22, 24, 32, 48, 64} {
+		img, err := statusImage(phase, light, frame, size)
+		if err != nil {
+			return nil, err
+		}
+		pixels := make([]byte, 0, size*size*4)
+		for y := 0; y < size; y++ {
+			for x := 0; x < size; x++ {
+				p := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
+				pixels = append(pixels, p.A, p.R, p.G, p.B)
+			}
+		}
+		result = append(result, iconPixmap{int32(size), int32(size), pixels})
+	}
+	return result, nil
+}

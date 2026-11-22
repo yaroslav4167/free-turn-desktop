@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -20,6 +21,7 @@ const (
 	wmUser        = 0x0400
 	wmTrayIcon    = wmUser + 1
 	wmCloseTray   = wmUser + 2
+	wmStatusTray  = wmUser + 3
 
 	cmdOpen = 1001
 	cmdQuit = 1002
@@ -60,22 +62,23 @@ var (
 
 	pShell_NotifyIconW = shell32.NewProc("Shell_NotifyIconW")
 
-	pRegisterClassExW    = user32.NewProc("RegisterClassExW")
-	pCreateWindowExW     = user32.NewProc("CreateWindowExW")
-	pDefWindowProcW      = user32.NewProc("DefWindowProcW")
-	pDestroyWindow       = user32.NewProc("DestroyWindow")
-	pGetMessageW         = user32.NewProc("GetMessageW")
-	pTranslateMessage    = user32.NewProc("TranslateMessage")
-	pDispatchMessageW    = user32.NewProc("DispatchMessageW")
-	pPostQuitMessage     = user32.NewProc("PostQuitMessage")
-	pPostMessageW        = user32.NewProc("PostMessageW")
-	pCreatePopupMenu     = user32.NewProc("CreatePopupMenu")
-	pAppendMenuW         = user32.NewProc("AppendMenuW")
-	pTrackPopupMenuEx    = user32.NewProc("TrackPopupMenuEx")
-	pDestroyMenu         = user32.NewProc("DestroyMenu")
-	pGetCursorPos        = user32.NewProc("GetCursorPos")
-	pSetForegroundWindow = user32.NewProc("SetForegroundWindow")
-	pDestroyIcon         = user32.NewProc("DestroyIcon")
+	pRegisterClassExW       = user32.NewProc("RegisterClassExW")
+	pCreateWindowExW        = user32.NewProc("CreateWindowExW")
+	pDefWindowProcW         = user32.NewProc("DefWindowProcW")
+	pDestroyWindow          = user32.NewProc("DestroyWindow")
+	pGetMessageW            = user32.NewProc("GetMessageW")
+	pTranslateMessage       = user32.NewProc("TranslateMessage")
+	pDispatchMessageW       = user32.NewProc("DispatchMessageW")
+	pPostQuitMessage        = user32.NewProc("PostQuitMessage")
+	pPostMessageW           = user32.NewProc("PostMessageW")
+	pRegisterWindowMessageW = user32.NewProc("RegisterWindowMessageW")
+	pCreatePopupMenu        = user32.NewProc("CreatePopupMenu")
+	pAppendMenuW            = user32.NewProc("AppendMenuW")
+	pTrackPopupMenuEx       = user32.NewProc("TrackPopupMenuEx")
+	pDestroyMenu            = user32.NewProc("DestroyMenu")
+	pGetCursorPos           = user32.NewProc("GetCursorPos")
+	pSetForegroundWindow    = user32.NewProc("SetForegroundWindow")
+	pDestroyIcon            = user32.NewProc("DestroyIcon")
 )
 
 type wndClassExW struct {
@@ -118,30 +121,51 @@ type notifyIconDataW struct {
 
 // Tray controls the Windows system tray lifecycle.
 type Tray struct {
-	hwnd      windows.Handle
-	hIcon     windows.Handle
-	lightIcon bool
-	onShow    func()
-	onQuit    func()
-	closed    chan struct{}
-	closeOnce sync.Once
+	hwnd          windows.Handle
+	hIcon         windows.Handle
+	lightIcon     bool
+	onShow        func()
+	onQuit        func()
+	closed        chan struct{}
+	closeOnce     sync.Once
+	statusMu      sync.Mutex
+	status        Status
+	frame         int
+	requestedTip  string
+	lastKey       iconKey
+	lastTip       string
+	stopping      atomic.Bool
+	reducedMotion atomic.Bool
 }
 
 var (
-	activeTrayMu sync.RWMutex
-	activeTrays  = make(map[windows.Handle]*Tray)
+	activeTrayMu        sync.RWMutex
+	activeTrays         = make(map[windows.Handle]*Tray)
+	shellMessageOnce    sync.Once
+	shellRestartMessage atomic.Uint32
 )
 
 func wndProc(hwnd windows.Handle, msg uint32, wParam, lParam uintptr) uintptr {
 	activeTrayMu.RLock()
 	t := activeTrays[hwnd]
 	activeTrayMu.RUnlock()
+	if restart := shellRestartMessage.Load(); restart != 0 && msg == restart {
+		if t != nil {
+			t.restoreIcon()
+		}
+		return 0
+	}
 
 	switch msg {
 	case wmSettingChange, wmThemeChanged:
 		if t != nil {
 			t.refreshIcon()
 		}
+	case wmStatusTray, 0x02e0: // WM_DPICHANGED
+		if t != nil {
+			t.refreshIcon()
+		}
+		return 0
 	case wmTrayIcon:
 		switch lParam {
 		case wmLButtonUp, wmLButtonDblClk:
@@ -223,6 +247,11 @@ func Start(title string, onShow func(), onQuit func()) (*Tray, error) {
 		// Lock OS thread for Win32 message loop
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
+		shellMessageOnce.Do(func() {
+			name, _ := windows.UTF16PtrFromString("TaskbarCreated")
+			value, _, _ := pRegisterWindowMessageW.Call(uintptr(unsafe.Pointer(name)))
+			shellRestartMessage.Store(uint32(value))
+		})
 
 		hInst, _, _ := pGetModuleHandleW.Call(0)
 
@@ -264,6 +293,7 @@ func Start(title string, onShow func(), onQuit func()) (*Tray, error) {
 		}
 
 		tray.hwnd = windows.Handle(hwnd)
+		tray.refreshMotion()
 
 		activeTrayMu.Lock()
 		activeTrays[tray.hwnd] = tray
@@ -357,11 +387,12 @@ func Start(title string, onShow func(), onQuit func()) (*Tray, error) {
 	return tray, nil
 }
 
-func (t *Tray) Available() bool { return t != nil && t.hwnd != 0 }
+func (t *Tray) Available() bool { return t != nil && t.hwnd != 0 && !t.stopping.Load() }
 
 // Close removes the tray icon and terminates the tray window and message loop.
 func (t *Tray) Close() {
 	t.closeOnce.Do(func() {
+		t.stopping.Store(true)
 		if t.hwnd != 0 {
 			pPostMessageW.Call(uintptr(t.hwnd), uintptr(wmCloseTray), 0, 0)
 			select {
@@ -370,4 +401,25 @@ func (t *Tray) Close() {
 			}
 		}
 	})
+}
+
+func (t *Tray) ReducedMotion() bool { return t == nil || t.reducedMotion.Load() }
+
+func (t *Tray) UpdateStatus(status Status, frame int) {
+	if t == nil || t.stopping.Load() {
+		return
+	}
+	frame = animationFrame(status.Phase(), frame)
+	if t.reducedMotion.Load() {
+		frame = 0
+	}
+	tip := status.Tooltip()
+	t.statusMu.Lock()
+	if t.status == status && t.frame == frame && t.requestedTip == tip {
+		t.statusMu.Unlock()
+		return
+	}
+	t.status, t.frame, t.requestedTip = status, frame, tip
+	t.statusMu.Unlock()
+	pPostMessageW.Call(uintptr(t.hwnd), uintptr(wmStatusTray), 0, 0)
 }

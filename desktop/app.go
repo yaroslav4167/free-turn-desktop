@@ -49,6 +49,7 @@ type App struct {
 	updateInstallGate *os.File
 	updateResult      integration.UpdateResult
 	captchaView       *captchaview.Controller
+	trayCancel        context.CancelFunc
 }
 
 func NewApp() *App {
@@ -84,6 +85,9 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) shutdown(ctx context.Context) {
+	if a.trayCancel != nil {
+		a.trayCancel()
+	}
 	if a.captchaView != nil {
 		a.captchaView.Close()
 	}

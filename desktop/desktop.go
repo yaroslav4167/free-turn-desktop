@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"time"
 
 	"github.com/samosvalishe/free-turn-proxy/desktop/integration"
 	"github.com/samosvalishe/free-turn-proxy/desktop/locale"
@@ -39,6 +40,31 @@ func (a *App) startTray() {
 	a.tray = t
 	if err != nil {
 		a.trayError = err.Error()
+	}
+	if t != nil {
+		ctx, cancel := context.WithCancel(a.ctx)
+		a.trayCancel = cancel
+		go a.trackTray(ctx, t)
+	}
+}
+
+func (a *App) trackTray(ctx context.Context, t *tray.Tray) {
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+	frame := 0
+	for {
+		state, streams, total, captcha, preparing, failed := a.engine.TraySnapshot()
+		status := tray.Status{State: state, Streams: streams, Total: total, HasCaptcha: captcha, Preparing: preparing, PreparationFailed: failed}
+		if status.Phase() != tray.Connecting || t.ReducedMotion() {
+			frame = 0
+		}
+		t.UpdateStatus(status, frame)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			frame = (frame + 1) % tray.AnimationFrames
+		}
 	}
 }
 

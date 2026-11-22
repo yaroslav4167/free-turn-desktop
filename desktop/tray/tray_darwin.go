@@ -9,6 +9,8 @@ package tray
 void freeturn_tray_start(const char *title, const char *open, const char *quit, const unsigned char *icon, int length);
 void freeturn_tray_close(void);
 void freeturn_tray_language(const char *open, const char *quit);
+void freeturn_tray_status(const unsigned char*,int,const unsigned char*,int,const char*,int);
+int freeturn_tray_reduced_motion(void);
 */
 import "C"
 import (
@@ -23,6 +25,9 @@ import (
 type Tray struct {
 	onShow, onQuit func()
 	available      atomic.Bool
+	statusMu       sync.Mutex
+	lastKey        iconKey
+	lastTip        string
 }
 
 var trayMu sync.Mutex
@@ -63,6 +68,45 @@ func (t *Tray) RefreshLanguage() {
 	defer C.free(unsafe.Pointer(a))
 	defer C.free(unsafe.Pointer(b))
 	C.freeturn_tray_language(a, b)
+}
+
+func (t *Tray) ReducedMotion() bool { return t == nil || C.freeturn_tray_reduced_motion() != 0 }
+
+func (t *Tray) UpdateStatus(status Status, frame int) {
+	if !t.Available() {
+		return
+	}
+	if t.ReducedMotion() {
+		frame = 0
+	}
+	key := iconKey{status.Phase(), false, animationFrame(status.Phase(), frame), 64}
+	tip := status.Tooltip()
+	t.statusMu.Lock()
+	defer t.statusMu.Unlock()
+	if key == t.lastKey && tip == t.lastTip {
+		return
+	}
+	dark, err := statusPNG(key.Phase, false, key.Frame, 64)
+	if err != nil {
+		return
+	}
+	light, err := statusPNG(key.Phase, true, key.Frame, 64)
+	if err != nil {
+		return
+	}
+	text := C.CString(tip)
+	defer C.free(unsafe.Pointer(text))
+	trayMu.Lock()
+	defer trayMu.Unlock()
+	if currentTray != t || !t.Available() {
+		return
+	}
+	template := 0
+	if key.Phase == Idle {
+		template = 1
+	}
+	C.freeturn_tray_status((*C.uchar)(unsafe.Pointer(&dark[0])), C.int(len(dark)), (*C.uchar)(unsafe.Pointer(&light[0])), C.int(len(light)), text, C.int(template))
+	t.lastKey, t.lastTip = key, tip
 }
 
 //export freeturn_tray_action

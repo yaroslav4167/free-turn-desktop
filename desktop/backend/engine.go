@@ -50,14 +50,16 @@ type Engine struct {
 	ctx   context.Context
 	store *Store
 
-	mu               sync.Mutex
-	serverID         string
-	traffic          trafficMeter
-	planCancel       context.CancelFunc
-	captchaURL       string
-	captchaPresenter func(string)
-	pingCancel       context.CancelFunc
-	pingGeneration   uint64
+	mu                           sync.Mutex
+	serverID                     string
+	traffic                      trafficMeter
+	planCancel                   context.CancelFunc
+	captchaURL                   string
+	captchaPresenter             func(string)
+	pingCancel                   context.CancelFunc
+	pingGeneration               uint64
+	planGeneration               uint64
+	preparing, preparationFailed bool
 }
 
 func NewEngine(store *Store) *Engine {
@@ -83,7 +85,7 @@ func (e *Engine) SetContext(ctx context.Context) {
 	}()
 }
 
-func (e *Engine) Connect(srv Server) error {
+func (e *Engine) Connect(srv Server) (err error) {
 	e.mu.Lock()
 	if e.planCancel != nil {
 		e.planCancel()
@@ -94,8 +96,11 @@ func (e *Engine) Connect(srv Server) error {
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	e.planCancel = cancel
+	e.planGeneration++
+	generation := e.planGeneration
+	e.preparing, e.preparationFailed = true, false
 	e.mu.Unlock()
-	defer cancel()
+	defer func() { cancel(); e.finishConnectPlan(generation, err) }()
 	if srv.Peer == "" {
 		return errors.New("peer is required")
 	}
@@ -155,12 +160,34 @@ func (e *Engine) Connect(srv Server) error {
 
 func (e *Engine) Disconnect() {
 	e.mu.Lock()
+	e.planGeneration++
+	e.preparing, e.preparationFailed = false, false
 	if e.planCancel != nil {
 		e.planCancel()
 		e.planCancel = nil
 	}
 	e.mu.Unlock()
 	e.forceStop()
+}
+
+func (e *Engine) finishConnectPlan(generation uint64, err error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if generation != e.planGeneration {
+		return
+	}
+	e.preparing = false
+	e.preparationFailed = err != nil && !errors.Is(err, context.Canceled)
+}
+
+// This presentation-only snapshot also covers DNS/helper preparation, before
+// the core can publish connecting. It does not alter the frontend wire schema.
+func (e *Engine) TraySnapshot() (state string, streams, total int, captcha, preparing, failed bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	snapshot := mobile.GetState()
+	captcha = e.captchaURL != "" && snapshot.State != mobile.StateIdle && snapshot.State != mobile.StateError
+	return snapshot.State, snapshot.Streams, snapshot.Total, captcha, e.preparing, e.preparationFailed
 }
 
 func (e *Engine) forceStop() {

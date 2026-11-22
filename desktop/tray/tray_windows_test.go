@@ -25,6 +25,8 @@ func TestTrayLifecycle(t *testing.T) {
 	}
 
 	time.Sleep(100 * time.Millisecond)
+	tray.UpdateStatus(Status{State: "connected", Streams: 3, Total: 12, HasCaptcha: true}, 0)
+	tray.UpdateStatus(Status{State: "connecting"}, 1)
 
 	tray.Close()
 
@@ -33,6 +35,18 @@ func TestTrayLifecycle(t *testing.T) {
 
 	_ = showCalled
 	_ = quitCalled
+}
+
+func TestNativeStatusTrayIcons(t *testing.T) {
+	for _, light := range []bool{false, true} {
+		for phase := Idle; phase <= Failed; phase++ {
+			handle, err := createWindowsStatusIcon(iconKey{phase, light, 0, 20})
+			if err != nil || handle == 0 {
+				t.Fatalf("status %d: %v", phase, err)
+			}
+			pDestroyIcon.Call(uintptr(handle))
+		}
+	}
 }
 
 func TestDenseNativeTrayIcons(t *testing.T) {
