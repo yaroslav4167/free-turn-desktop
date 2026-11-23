@@ -75,3 +75,9 @@ func writePrivateFile(path string, data []byte) error {
 	}
 	return os.Rename(f.Name(), path)
 }
+
+// UpdateGuestShareVKLink edits the outgoing link without changing the owner's
+// saved profile or re-issuing the recipient's WireGuard credentials.
+func (a *App) UpdateGuestShareVKLink(raw, vkLink string) (*backend.GuestShare, error) {
+	return backend.UpdateGuestShareVKLink(raw, vkLink)
+}

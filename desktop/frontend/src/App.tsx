@@ -25,6 +25,7 @@ import {watchStatus} from './status'
 import {EMPTY_TRAFFIC_HISTORY, recordTraffic} from './trafficHistory'
 import {tr} from './language'
 import CaptchaNotice from './components/CaptchaNotice'
+import ConfirmDialog, {type Confirmation} from './components/ConfirmDialog'
 
 const MAX_LOG_LINES = 500
 
@@ -57,6 +58,23 @@ export default function App() {
   const [connectError, setConnectError] = useState('')
   const [recoveryNotice, setRecoveryNotice] = useState('')
   const connectionRequest = useRef(0)
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null)
+  const confirmationRef = useRef<Confirmation | null>(null)
+  const confirm = (message: string, label = tr('Продолжить', 'Continue'), danger = false): Promise<boolean> => {
+    if (confirmationRef.current) return Promise.resolve(false)
+    return new Promise(resolve => {
+      const request = {message, label, danger, resolve}
+      confirmationRef.current = request
+      setConfirmation(request)
+    })
+  }
+  const answerConfirmation = (accepted: boolean) => {
+    const request = confirmationRef.current
+    confirmationRef.current = null
+    setConfirmation(null)
+    request?.resolve(accepted)
+  }
+  useEffect(() => () => { confirmationRef.current?.resolve(false) }, [])
   const [showAdd, setShowAdd] = useState(false)
   const [view, setView] = useState<View>('connect')
   const [settingsOpened, setSettingsOpened] = useState(false)
@@ -116,12 +134,13 @@ export default function App() {
   const savedSelected = useMemo(() => servers.find((s) => s.id === selectedId) ?? null, [servers, selectedId])
   const dirty = !sameServer(draft, savedSelected)
 
-  const selectServer = (id: string) => {
-    if (id === selectedId) return
-    if (dirty && !window.confirm(tr('Несохранённые изменения будут потеряны. Продолжить?', 'Unsaved changes will be lost. Continue?'))) return
+  const selectServer = async (id: string) => {
+    if (id === selectedId) return true
+    if (dirty && !await confirm(tr('Несохранённые изменения будут потеряны. Продолжить?', 'Unsaved changes will be lost. Continue?'))) return false
     setConnectError('')
     setSelectedId(id)
     localStorage.setItem('freeturn:selected-server', id)
+    return true
   }
 
   const handleSave = async () => {
@@ -131,17 +150,22 @@ export default function App() {
     setDraft(saved)
   }
 
-  const handleDelete = async () => {
-    if (!draft?.id) return
-    if (pending || (status.serverId === draft.id && !['idle','error'].includes(status.state))) return
-    if (!window.confirm(tr('Удалить локальный профиль «{name}»? Сервер на VPS и его пользователи не будут удалены.', {name: draft.name || draft.peer}))) return
-    await DeleteServer(draft.id)
-    setServers((prev) => prev.filter((s) => s.id !== draft.id))
-    setSelectedId(null)
+  const handleDelete = async (id = draft?.id) => {
+    const target = servers.find(server => server.id === id)
+    if (!target || pending || (status.serverId === id && !['idle','error'].includes(status.state))) return
+    if (!await confirm(tr('Удалить локальный профиль «{name}»? Сервер на VPS и его пользователи не будут удалены.', {name: target.name || target.peer}), tr('Удалить профиль', 'Delete profile'), true)) return
+    try {
+      await DeleteServer(target.id)
+      setServers(prev => prev.filter(server => server.id !== target.id))
+      if (selectedId === target.id) {
+        setSelectedId(null)
+        localStorage.removeItem('freeturn:selected-server')
+      }
+    } catch (e) { setConnectError(String(e)) }
   }
 
   const handleImport = async () => {
-    if (dirty && !window.confirm(tr('Несохранённые изменения будут потеряны. Продолжить?', 'Unsaved changes will be lost. Continue?'))) return
+    if (dirty && !await confirm(tr('Несохранённые изменения будут потеряны. Продолжить?', 'Unsaved changes will be lost. Continue?'))) return false
     try {
       const imported = await desktop().ImportProfiles()
       if (!imported.length) return
@@ -151,18 +175,20 @@ export default function App() {
     } catch (e) { setConnectError(String(e)) }
   }
 
-  const handleConnect = async () => {
-    if (!draft || pending) return
+  const handleConnect = async (id = draft?.id) => {
+    const target = id === draft?.id ? draft : servers.find(server => server.id === id)
+    if (!target || pending) return
+    if (id !== selectedId && !await selectServer(target.id)) return
     const request = ++connectionRequest.current
     setConnectError('')
-    setPendingServerId(draft.id)
+    setPendingServerId(target.id)
     try {
-      if (dirty) await handleSave()
+      if (target.id === draft?.id && dirty) await handleSave()
       if (request !== connectionRequest.current) return
       // Connect always force-stops whatever was running first (a different
       // server, or a stuck half-failed attempt on this one), so no need to
       // orchestrate a separate Disconnect from here.
-      await Connect(draft.id)
+      await Connect(target.id)
     } catch (e) {
       if (request === connectionRequest.current) setConnectError(String(e))
     } finally {
@@ -210,7 +236,7 @@ export default function App() {
             pendingServerId={pendingServerId}
             trafficHistory={trafficHistory}
             onSelect={selectServer}
-            onConnect={handleConnect}
+            onConnect={() => { void handleConnect() }}
             onDisconnect={handleDisconnect}
             onAdd={() => setShowAdd(true)}
             onEdit={() => setView('servers')}
@@ -244,6 +270,10 @@ export default function App() {
               onSelect={selectServer}
               onAdd={() => setShowAdd(true)}
               onImport={handleImport}
+              pendingServerId={pendingServerId}
+              onConnect={id => { void handleConnect(id) }}
+              onDisconnect={handleDisconnect}
+              onDelete={id => { void handleDelete(id) }}
               onExport={id => { void desktop().ExportProfile(id).catch(e => setConnectError(String(e))) }}
             />
             <div className="main">
@@ -266,7 +296,7 @@ export default function App() {
                   onDelete={() => {
                     handleDelete().catch((e) => setConnectError(String(e)))
                   }}
-                  onConnect={handleConnect}
+                  onConnect={() => { void handleConnect() }}
                   onDisconnect={handleDisconnect}
                   onClearLogs={() => setLogs([])}
                 />
@@ -275,7 +305,8 @@ export default function App() {
           </div>
         )}
       </main>
-      <UpdateNotice onOpen={() => changeView('settings')} blocked={showAdd || settingsDialogOpen || !!status.captchaUrl || pending} />
+      <UpdateNotice onOpen={() => changeView('settings')} blocked={!!confirmation || showAdd || settingsDialogOpen || !!status.captchaUrl || pending} />
+      {confirmation && <ConfirmDialog request={confirmation} onAnswer={answerConfirmation} />}
       {showAdd && (
         <AddServerModal
           onClose={() => setShowAdd(false)}

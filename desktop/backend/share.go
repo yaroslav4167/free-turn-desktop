@@ -104,3 +104,19 @@ func QRDataURL(content string) (string, error) {
 	}
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(png), nil
 }
+
+// UpdateGuestShareVKLink changes only the VK link in an already-issued guest
+// connection. No new peer, credentials or SSH request is needed.
+func UpdateGuestShareVKLink(raw, vkLink string) (*GuestShare, error) {
+	link, err := ParseShareLink(raw)
+	if err != nil {
+		return nil, err
+	}
+	link.VKLink = strings.TrimSpace(vkLink)
+	encoded, err := link.Encode()
+	if err != nil {
+		return nil, err
+	}
+	qr, _ := QRDataURL(encoded)
+	return &GuestShare{Link: encoded, QR: qr, IncludesVK: link.VKLink != ""}, nil
+}

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"image/png"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -190,3 +191,37 @@ func TestQRDataURL(t *testing.T) {
 }
 
 func hexN(n int) string { return GenerateClientID()[:n*2] }
+
+func TestUpdateGuestShareVKLinkPreservesIssuedConnection(t *testing.T) {
+	owner := ownerServer()
+	raw, err := owner.GuestLink(GuestLinkInput{ClientID: hexN(16), WgConf: guestConf(), IncludeVK: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	original, _ := ParseShareLink(raw)
+	for _, vk := range []string{" https://vk.ru/call/join/recipient ", ""} {
+		share, err := UpdateGuestShareVKLink(raw, vk)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := ParseShareLink(share.Link)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := *original
+		want.VKLink = strings.TrimSpace(vk)
+		if !reflect.DeepEqual(got, &want) {
+			t.Fatal("editing VK link changed other connection fields")
+		}
+		qr, _ := QRDataURL(share.Link)
+		if share.QR == "" || share.QR != qr || share.IncludesVK != (want.VKLink != "") {
+			t.Fatal("QR and inclusion flag do not match the generated link")
+		}
+	}
+	if owner.VKLinks[0] != "https://vk.ru/call/join/owner" {
+		t.Fatal("owner profile changed")
+	}
+	if _, err := UpdateGuestShareVKLink("invalid", "https://vk.ru/call/join/recipient"); err == nil {
+		t.Fatal("invalid base link accepted")
+	}
+}

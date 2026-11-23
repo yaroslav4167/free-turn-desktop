@@ -2,6 +2,8 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {backend, CopyText, serversetup, ServerPeerAdd, ServerPeerRemove, ServerPeers, ServerPeerShare} from '../api'
 import {exactTime, formatBytes, formatLastSeen, presence, Presence} from '../format'
 import {tr} from '../language'
+import {desktop} from '../desktop'
+import ConfirmDialog from './ConfirmDialog'
 
 const REFRESH_MS = 15000
 const PRESENCE_ORDER: Record<Presence, number> = {online: 0, recent: 1, idle: 2, never: 3}
@@ -21,6 +23,7 @@ export default function PeersPanel({server}: Props) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [newName, setNewName] = useState('')
+  const [peerToDelete, setPeerToDelete] = useState<serversetup.Peer | null>(null)
   const [shareState, setShareState] = useState<ShareState | null>(null)
   const generation = useRef(0)
   const inflight = useRef<{generation: number} | null>(null)
@@ -45,6 +48,8 @@ export default function PeersPanel({server}: Props) {
 
   useEffect(() => {
     setList(null)
+    setPeerToDelete(null)
+    setShareState(null)
     setError('')
     refresh()
     // Poll for "who is online" - but only while the window is actually visible,
@@ -98,16 +103,9 @@ export default function PeersPanel({server}: Props) {
       setShareState({share, peerName: p.name})
     })
 
-  const toggleVK = (include: boolean) =>
-    guarded(async () => {
-      if (!shareState) return
-      const share = await ServerPeerShare(server.id, shareState.share.pub, shareState.peerName, include)
-      setShareState({share, peerName: shareState.peerName})
-    })
-
   const removeUser = (p: serversetup.Peer) =>
     guarded(async () => {
-      if (!window.confirm(tr('Удалить пользователя «{name}»? Его подключение перестанет работать сразу.', {name: p.name || p.ip}))) return
+      if (p.isOwner) return
       await ServerPeerRemove(server.id, p.pub)
       await refresh()
     })
@@ -153,7 +151,7 @@ export default function PeersPanel({server}: Props) {
                   </button>
                 )}
                 {!p.isOwner && (
-                  <button className="btn small danger" disabled={busy} onClick={() => removeUser(p)}>
+                  <button className="btn small danger" disabled={busy} onClick={() => setPeerToDelete(p)}>
                     {tr('Удалить', 'Delete')}
                   </button>
                 )}
@@ -178,13 +176,19 @@ export default function PeersPanel({server}: Props) {
         </button>
       </div>
 
+      {peerToDelete && <ConfirmDialog request={{
+        message: tr('Удалить пользователя «{name}»? Его подключение перестанет работать сразу.', {name: peerToDelete.name || peerToDelete.ip}),
+        label: tr('Удалить', 'Delete'), danger: true,
+      }} onAnswer={accepted => {
+        const peer = peerToDelete
+        setPeerToDelete(null)
+        if (accepted) void removeUser(peer)
+      }} />}
       {shareState && (
         <ShareModal
           share={shareState.share}
           peerName={shareState.peerName}
-          canIncludeVK={server.vkLinks.length > 0}
-          busy={busy}
-          onIncludeVK={toggleVK}
+          defaultVKLink={server.vkLinks[0] || ''}
           onClose={() => setShareState(null)}
         />
       )}
@@ -195,20 +199,38 @@ export default function PeersPanel({server}: Props) {
 interface ShareModalProps {
   share: backend.GuestShare
   peerName: string
-  canIncludeVK: boolean
-  busy: boolean
-  onIncludeVK: (include: boolean) => void
+  defaultVKLink: string
   onClose: () => void
 }
 
-function ShareModal({share, peerName, canIncludeVK, busy, onIncludeVK, onClose}: ShareModalProps) {
+export function ShareModal({share, peerName, defaultVKLink, onClose}: ShareModalProps) {
   const [copied, setCopied] = useState(false)
+  const [includeVK, setIncludeVK] = useState(share.includesVk)
+  const [vkLink, setVKLink] = useState(defaultVKLink)
+  const [generated, setGenerated] = useState({share, vkLink: share.includesVk ? defaultVKLink.trim() : ''})
+  const [error, setError] = useState('')
+  const requestedVKLink = includeVK ? vkLink.trim() : ''
+  const ready = (!includeVK || !!requestedVKLink) && generated.vkLink === requestedVKLink
+
+  useEffect(() => {
+    setCopied(false)
+    setError('')
+    if (ready || (includeVK && !requestedVKLink)) return
+    let active = true
+    const timer = window.setTimeout(() => {
+      desktop().UpdateGuestShareVKLink(share.link, requestedVKLink).then(next => {
+        if (active) setGenerated({share: next, vkLink: requestedVKLink})
+      }).catch(e => { if (active) setError(String(e)) })
+    }, 300)
+    return () => { active = false; window.clearTimeout(timer) }
+  }, [share.link, includeVK, requestedVKLink, ready])
 
   const copy = async () => {
+    if (!ready) return
     try {
-      await CopyText(share.link)
+      await CopyText(generated.share.link)
     } catch {
-      await navigator.clipboard?.writeText(share.link)
+      await navigator.clipboard?.writeText(generated.share.link)
     }
     setCopied(true)
     setTimeout(() => setCopied(false), 1800)
@@ -218,32 +240,36 @@ function ShareModal({share, peerName, canIncludeVK, busy, onIncludeVK, onClose}:
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h2>{tr('Подключение для «{name}»', {name: peerName || share.ip})}</h2>
-        {share.qr ? (
+        <label className="checkbox-row">
+          <input type="checkbox" checked={includeVK} onChange={e => setIncludeVK(e.target.checked)} />
+          {tr('Включить ссылку на звонок VK', 'Include a VK call link')}
+        </label>
+        {includeVK && <div className="field">
+          <label htmlFor="share-vk-link">{tr('Ссылка на звонок VK Calls', 'VK Calls link')}</label>
+          <input id="share-vk-link" type="text" value={vkLink} onChange={e => setVKLink(e.target.value)} placeholder="https://vk.ru/call/join/..." />
+        </div>}
+        {error && <div className="notice error" role="alert">{error}</div>}
+        {!ready && !error && <div className="notice info" role="status">{includeVK && !requestedVKLink ? tr('Укажите ссылку на звонок VK.', 'Enter a VK call link.') : tr('Подождите…', 'Please wait…')}</div>}
+        {ready && (generated.share.qr ? (
           <div className="qr-box">
-            <img src={share.qr} alt={tr('QR-код подключения', 'Connection QR code')} />
+            <img src={generated.share.qr} alt={tr('QR-код подключения', 'Connection QR code')} />
           </div>
         ) : (
           <div className="notice info">{tr('Ссылка слишком длинная для QR-кода — отправьте её текстом.', 'The link is too long for a QR code — send it as text.')}</div>
-        )}
+        ))}
         <div className="field">
           <label>{tr('Ссылка freeturn://', 'freeturn:// link')}</label>
-          <textarea readOnly value={share.link} onClick={(e) => (e.target as HTMLTextAreaElement).select()} />
+          <textarea readOnly value={ready ? generated.share.link : ''} onClick={(e) => (e.target as HTMLTextAreaElement).select()} />
         </div>
-        {canIncludeVK && (
-          <label className="checkbox-row">
-            <input type="checkbox" checked={share.includesVk} disabled={busy} onChange={(e) => onIncludeVK(e.target.checked)} />
-            {tr('Добавить в ссылку мою ссылку на звонок VK', 'Include my VK call link')}
-          </label>
-        )}
         <div className="notice info">
           {tr('Отправьте ссылку или покажите QR: пользователь импортирует её в приложении, и сервер добавится сразу с рабочим WireGuard.', 'Send the link or show the QR code: importing it into the app adds the server with a working WireGuard configuration.')}
-          {!share.includesVk && tr(' Свою ссылку на звонок VK он вводит сам.', ' The user will enter their own VK call link.')}
+          {!includeVK && tr(' Свою ссылку на звонок VK он вводит сам.', ' The user will enter their own VK call link.')}
         </div>
         <div className="modal-actions">
           <button className="btn" onClick={onClose}>
             {tr('Закрыть', 'Close')}
           </button>
-          <button className="btn primary" onClick={copy}>
+          <button className="btn primary" disabled={!ready} onClick={copy}>
             {copied ? tr('Скопировано ✓', 'Copied ✓') : tr('Скопировать ссылку', 'Copy link')}
           </button>
         </div>

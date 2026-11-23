@@ -2,6 +2,10 @@
   "code": "en",
   "name": "English",
   "messages": {
+    "Включить ссылку на звонок VK": "Include a VK call link",
+    "Ссылка на звонок VK Calls": "VK Calls link",
+    "Укажите ссылку на звонок VK.": "Enter a VK call link.",
+    "Продолжить": "Continue",
     "Локальная сеть в обход VPN": "Bypass VPN for local networks",
     "Локальная сеть — напрямую": "Local networks bypass VPN",
     "Локальные и частные сети — напрямую, кроме VPN-DNS.": "Local and private networks bypass VPN, except profile DNS.",

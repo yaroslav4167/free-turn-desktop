@@ -19,6 +19,7 @@ export interface DesktopSettings {
 }
 
 interface DesktopAPI {
+  UpdateGuestShareVKLink(raw: string, vkLink: string): Promise<import('../wailsjs/go/models').backend.GuestShare>
   ReleaseHistory(): Promise<ReleaseHistoryEntry[]>
   ExportProfile(id: string): Promise<void>
   ImportProfiles(): Promise<import('../wailsjs/go/models').backend.Server[]>

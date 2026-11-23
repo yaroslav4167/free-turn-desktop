@@ -13,9 +13,13 @@ interface Props {
   onAdd: () => void
   onImport: () => void
   onExport: (id: string) => void
+  pendingServerId: string | null
+  onConnect: (id: string) => void
+  onDisconnect: () => void
+  onDelete: (id: string) => void
 }
 
-export default function Sidebar({servers, selectedId, activeState, activeServerId, onSelect, onAdd, onImport, onExport}: Props) {
+export default function Sidebar({servers, selectedId, activeState, activeServerId, onSelect, onAdd, onImport, onExport, pendingServerId, onConnect, onDisconnect, onDelete}: Props) {
   const [menu, setMenu] = useState<{id: string; x: number; y: number} | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement | null>(null)
@@ -31,6 +35,14 @@ export default function Sidebar({servers, selectedId, activeState, activeServerI
     window.addEventListener('blur', close)
     return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', key); window.removeEventListener('resize', close); window.removeEventListener('blur', close) }
   }, [menu])
+  const menuServer = servers.find(server => server.id === menu?.id)
+  const menuActive = menu?.id === activeServerId && !['idle', 'error'].includes(activeState)
+  const busy = pendingServerId !== null || ['connecting', 'captcha'].includes(activeState)
+  const menuAction = (action: () => void) => {
+    setMenu(null)
+    trigger.current?.focus()
+    action()
+  }
   return (
     <div className="sidebar">
       <div className="sidebar-header">
@@ -51,7 +63,7 @@ export default function Sidebar({servers, selectedId, activeState, activeServerI
               onContextMenu={e => {
                 e.preventDefault(); trigger.current = e.currentTarget
                 const rect = e.currentTarget.getBoundingClientRect()
-                setMenu({id:s.id, x:Math.min(e.clientX || rect.left, Math.max(8, window.innerWidth-240)), y:Math.min(e.clientY || rect.bottom, Math.max(8, window.innerHeight-64))})
+                setMenu({id:s.id, x:Math.min(e.clientX || rect.left, Math.max(8, window.innerWidth-240)), y:Math.min(e.clientY || rect.bottom, Math.max(8, window.innerHeight-180))})
               }}
             >
               <span className={'dot' + (isActive ? ' ' + activeState : '')} />
@@ -72,8 +84,10 @@ export default function Sidebar({servers, selectedId, activeState, activeServerI
         </button>
         <button className="btn-add profile-import" onClick={onImport} title={tr('Импортировать', 'Import')} aria-label={tr('Импортировать', 'Import')}><Icon name="upload" size={18} /></button>
       </div>
-      {menu && createPortal(<div ref={menuRef} className="profile-context-menu" role="menu" style={{position:'fixed', left:menu.x, top:menu.y, zIndex:10000}}>
-        <button className="btn" role="menuitem" onClick={() => { onExport(menu.id); setMenu(null); trigger.current?.focus() }}>{tr('Экспортировать профиль…', 'Export profile…')}</button>
+      {menu && menuServer && createPortal(<div ref={menuRef} className="profile-context-menu" role="menu" style={{position:'fixed', left:menu.x, top:menu.y, zIndex:10000}}>
+        <button className="btn" role="menuitem" disabled={!menuActive && (busy || !menuServer.peer)} onClick={() => menuAction(() => menuActive ? onDisconnect() : onConnect(menu.id))}>{menuActive ? tr('Отключить', 'Disconnect') : tr('Подключиться', 'Connect')}</button>
+        <button className="btn" role="menuitem" onClick={() => menuAction(() => onExport(menu.id))}>{tr('Экспортировать профиль…', 'Export profile…')}</button>
+        <button className="btn danger" role="menuitem" disabled={pendingServerId !== null || menuActive} onClick={() => menuAction(() => onDelete(menu.id))}>{tr('Удалить профиль', 'Delete profile')}</button>
       </div>, document.body)}
     </div>
   )

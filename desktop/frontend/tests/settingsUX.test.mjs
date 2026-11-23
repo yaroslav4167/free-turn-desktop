@@ -49,7 +49,7 @@ test('connecting button has a compact loader, cancel action and duplicate-submit
   const app=read('App.tsx')
   assert.match(app,/pendingServerId=\{pendingServerId\}/)
   const connect=app.slice(app.indexOf('const handleConnect'),app.indexOf('const handleDisconnect'))
-  assert.ok(connect.indexOf('if (request !== connectionRequest.current) return') < connect.indexOf('await Connect(draft.id)'))
+  assert.ok(connect.indexOf('if (request !== connectionRequest.current) return') < connect.indexOf('await Connect(target.id)'))
   assert.match(connect,/request === connectionRequest.current/)
 })
 
