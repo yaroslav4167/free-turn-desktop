@@ -13,7 +13,8 @@ test('interface has no blur, shadows or decorative gradients', () => {
 
 test('idle screens and traffic charts do not animate', () => {
   const keyframes = [...css.matchAll(/@keyframes\s+([\w-]+)/g)].map((match) => match[1])
-  assert.deepEqual(keyframes, ['connection-trace'])
+  assert.deepEqual(keyframes.sort(), ['connection-trace', 'update-progress-sweep'])
+  assert.match(css, /\.update-progress\.indeterminate \.update-progress-fill\s*\{[^}]*animation:\s*update-progress-sweep/)
   assert.match(css, /\.power-button\[aria-busy='true'\] \.power-progress\s*\{\s*opacity:\s*1/)
   assert.match(css, /\.power-progress-path\s*\{[^}]*animation-play-state:\s*paused/)
   assert.match(css, /\.power-button\[aria-busy='true'\] \.power-progress-path\s*\{\s*animation-play-state:\s*running/)

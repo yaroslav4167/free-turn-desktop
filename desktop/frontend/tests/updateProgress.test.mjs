@@ -8,6 +8,7 @@ test('download progress shows bytes, percent, speed and remaining time', () => {
   const progress = updateProgress({...idle, busy: 'preparing', phase: 'downloading', received: 2 * 1024 * 1024,
     total: 8 * 1024 * 1024, bytesPerSecond: 1024 * 1024, remainingSeconds: 6}, 'installing')
   assert.equal(progress.percent, 25)
+  assert.equal(progress.value, 25)
   assert.equal(progress.transfer, '2,0 МиБ из 8,0 МиБ')
   assert.equal(progress.speed, '1,0 МиБ/с')
   assert.equal(progress.eta, 'Осталось ≈ 6 с')
@@ -18,10 +19,24 @@ test('verification, extraction and restart never pretend that installation is 10
     const progress = updateProgress({...idle, busy: 'preparing', phase, received: 100, total: 100}, 'installing')
     assert.equal(progress.phase, phase)
     assert.equal(progress.percent, null)
+    assert.equal(progress.value, null)
     assert.equal(progress.transfer, '')
     assert.equal(progress.eta, '')
   }
   assert.match(updateProgress({...idle, busy: 'restarting', phase: 'restarting'}, 'installing').detail, /окно закроется/)
+})
+
+test('visual progress keeps fractional measurements without inventing downloaded bytes', () => {
+  const state = {...idle, busy: 'downloading', phase: 'downloading', received: 2525, total: 10000}
+  const first = updateProgress(state, null)
+  assert.equal(first.percent, 25)
+  assert.equal(first.value, 25.25)
+  const second = updateProgress({...state, received: 2530}, null)
+  assert.equal(second.percent, 25)
+  assert.equal(second.value, 25.3)
+  assert.equal(updateProgress({...state, received: 20000}, null).value, 100)
+  assert.equal(updateProgress({...state, received: -1}, null).value, 0)
+  assert.equal(updateProgress({...state, total: 0}, null).value, null)
 })
 
 test('progress appears immediately while waiting for a native dialog and disappears when cancelled', () => {

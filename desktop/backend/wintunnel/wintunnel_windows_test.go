@@ -4,12 +4,43 @@ package wintunnel
 
 import (
 	"errors"
+	"fmt"
 	"net/netip"
+	"os"
+	"strings"
 	"testing"
 
+	"github.com/samosvalishe/free-turn-proxy/desktop/locale"
 	"golang.org/x/sys/windows"
 	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 )
+
+func TestWintunAccessDeniedExplainsElevation(t *testing.T) {
+	defer locale.Set("en")
+	for _, language := range []struct{ code, hint string }{
+		{"ru", "Запуск от имени администратора"},
+		{"en", "Run as administrator"},
+	} {
+		locale.Set(language.code)
+		for _, cause := range []error{windows.ERROR_ACCESS_DENIED, windows.ERROR_PRIVILEGE_NOT_HELD, os.ErrPermission} {
+			err := wintunAdapterError(fmt.Errorf("Error creating interface: %w", cause))
+			if !strings.Contains(err.Error(), language.hint) {
+				t.Fatalf("%s: missing elevation hint: %v", language.code, err)
+			}
+			if !errors.Is(err, cause) || !strings.Contains(err.Error(), "create wintun adapter") {
+				t.Fatalf("lost original diagnostic: %v", err)
+			}
+		}
+	}
+}
+
+func TestWintunOtherErrorsKeepOriginalDiagnostic(t *testing.T) {
+	cause := errors.New("driver initialization failed")
+	err := wintunAdapterError(cause)
+	if !errors.Is(err, cause) || err.Error() != "create wintun adapter: driver initialization failed" {
+		t.Fatalf("unrelated error was rewritten: %v", err)
+	}
+}
 
 type fakeRouteAdapter struct {
 	routes map[netip.Prefix]netip.Addr

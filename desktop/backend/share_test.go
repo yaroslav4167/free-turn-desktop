@@ -80,6 +80,40 @@ func TestGuestLinkIncludesVKOnlyOnRequest(t *testing.T) {
 	}
 }
 
+func TestGuestLinkUsesRecipientNameInsteadOfServerLabel(t *testing.T) {
+	server := ownerServer()
+	server.Name = "s4.logixy.net"
+	for _, test := range []struct{ name, want string }{
+		{"mywin", "mywin"},
+		{"  Мой Windows 🇩🇪  ", "Мой Windows 🇩🇪"},
+		{"", "s4.logixy.net"},
+		{"  ", "s4.logixy.net"},
+	} {
+		raw, err := server.GuestLink(GuestLinkInput{Name: test.name, ClientID: hexN(16), WgConf: guestConf()})
+		if err != nil {
+			t.Fatal(err)
+		}
+		parsed, err := ParseShareLink(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if parsed.Name != test.want || parsed.ApplyTo(DefaultServer()).Name != test.want {
+			t.Fatalf("recipient %q: encoded/imported name = %q, want %q", test.name, parsed.Name, test.want)
+		}
+		share, err := UpdateGuestShareVKLink(raw, "https://vk.ru/call/join/recipient")
+		if err != nil {
+			t.Fatal(err)
+		}
+		updated, err := ParseShareLink(share.Link)
+		if err != nil || updated.Name != test.want {
+			t.Fatalf("changing VK link lost recipient name: %v, %v", updated, err)
+		}
+		if server.Name != "s4.logixy.net" {
+			t.Fatal("owner profile was renamed")
+		}
+	}
+}
+
 // What the server is really running beats what the saved profile says.
 func TestGuestLinkPrefersLiveServerObfuscation(t *testing.T) {
 	stale := ownerServer()

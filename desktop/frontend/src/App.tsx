@@ -21,6 +21,7 @@ import Connection from './components/Connection'
 import DesktopPreferences from './components/DesktopPreferences'
 import {UpdateNotice} from './components/UpdatePreferences'
 import {desktop} from './desktop'
+import {desktopSettings} from './desktopSettings'
 import {watchStatus} from './status'
 import {EMPTY_TRAFFIC_HISTORY, recordTraffic} from './trafficHistory'
 import {tr} from './language'
@@ -89,7 +90,7 @@ export default function App() {
 
   useEffect(() => {
     desktop().ProfileRecoveryNotice().then(setRecoveryNotice).catch(() => {})
-    Promise.all([ListServers(), desktop().DesktopSettings().catch(() => null)])
+    Promise.all([ListServers(), desktopSettings.load().catch(() => null)])
       .then(([list, settings]) => {
         setServers(list)
         const last = settings?.autoConnect ? settings.autoConnectServerId : localStorage.getItem('freeturn:selected-server')

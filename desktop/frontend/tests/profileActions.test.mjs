@@ -17,7 +17,7 @@ test('profile actions work without browser confirm and target the context-menu p
   await build({entryPoints:[fileURLToPath(new URL('../src/App.tsx', import.meta.url))], outfile:output, bundle:true, format:'esm', platform:'node', logOverride:{'duplicate-object-key':'silent'}, jsx:'automatic', external:['react','react-dom','react-dom/*'], plugins:[{
     name:'synthetic-backend', setup(builder) {
       builder.onResolve({filter:/\/api$/}, () => ({path:'api',namespace:'mock'}))
-      builder.onResolve({filter:/\/desktop$/}, () => ({path:'desktop',namespace:'mock'}))
+      builder.onResolve({filter:/\/desktop(?:\.ts)?$/}, () => ({path:'desktop',namespace:'mock'}))
       builder.onResolve({filter:/\/components\//}, args => {
         const name=args.path.split('/').at(-1)
         if (!['Sidebar','ConfirmDialog'].includes(name)) return {path:name,namespace:'mock'}

@@ -967,6 +967,35 @@ button:disabled {
   width: 100%;
   max-width: 400px;
   margin-top: 8px;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--bg-input);
+}
+.update-progress-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+  transition: transform 500ms linear;
+}
+.update-progress.indeterminate .update-progress-fill {
+  width: 30%;
+  transition: none;
+  animation: update-progress-sweep 1.4s ease-in-out infinite;
+}
+@keyframes update-progress-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(334%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-progress-fill { transition: none; }
+  .update-progress.indeterminate .update-progress-fill {
+    animation: none;
+    margin-inline: auto;
+    transform: none;
+  }
 }
 .update-task {
   margin-top: 14px;
@@ -994,7 +1023,6 @@ button:disabled {
   width: 100%;
   max-width: none;
   height: 8px;
-  accent-color: var(--accent);
 }
 
 .settings-card .notice {

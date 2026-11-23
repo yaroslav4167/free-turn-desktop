@@ -23,6 +23,9 @@ type GuestShare struct {
 
 // GuestLinkInput is what goes into one user's link besides the server profile.
 type GuestLinkInput struct {
+	// Name is the recipient/device label, not the owner's server profile name.
+	// Empty names retain the server label as a fallback for older callers.
+	Name string
 	// ClientID is the user's proxy allowlist id; WgConf their WireGuard config.
 	ClientID string
 	WgConf   string
@@ -46,6 +49,10 @@ func (s Server) GuestLink(in GuestLinkInput) (string, error) {
 	if in.ObfProfile != "" {
 		mode, obfProfile, obfKey = in.Mode, in.ObfProfile, in.ObfKey
 	}
+	name := strings.TrimSpace(in.Name)
+	if name == "" {
+		name = strings.TrimSpace(s.Name)
+	}
 
 	link := ShareLink{
 		Provider:       s.Provider,
@@ -53,7 +60,7 @@ func (s Server) GuestLink(in GuestLinkInput) (string, error) {
 		N:              s.N,
 		StreamsPerCred: s.StreamsPerCred,
 		ClientID:       in.ClientID,
-		Name:           strings.TrimSpace(s.Name),
+		Name:           name,
 		WgConf:         NormalizeWgConf(in.WgConf),
 	}
 	if s.Transport == "udp" {

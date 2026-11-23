@@ -13,7 +13,8 @@ interface Props {
 export default function AddServerModal({onClose, onCreated}: Props) {
   const dialog = useDialogFocus(onClose)
   const [tab, setTab] = useState<'link' | 'manual' | 'deploy'>('link')
-  const [name, setName] = useState('')
+  // null means "use the imported name"; an explicit edit belongs to the user.
+  const [name, setName] = useState<string | null>(null)
   const [vkLink, setVkLink] = useState('')
   const [peer, setPeer] = useState('')
   const [linkText, setLinkText] = useState('')
@@ -35,13 +36,14 @@ export default function AddServerModal({onClose, onCreated}: Props) {
   }, [linkText, tab])
 
   const includedVKLink = preview?.vkLink || ''
+  const profileName = name ?? (tab === 'link' ? preview?.name || '' : '')
 
   const submitLink = async () => {
     setBusy(true)
     setError('')
     try {
       const base = await NewServer()
-      base.name = name
+      base.name = profileName
       if (vkLink.trim()) base.vkLinks = [vkLink.trim()]
       const saved = await ImportLink(linkText.trim(), base)
       onCreated(saved)
@@ -57,7 +59,7 @@ export default function AddServerModal({onClose, onCreated}: Props) {
     setError('')
     try {
       const base = await NewServer()
-      base.name = name
+      base.name = profileName
       base.peer = peer.trim()
       if (vkLink.trim()) base.vkLinks = [vkLink.trim()]
       const saved = await SaveServer(base)
@@ -91,8 +93,8 @@ export default function AddServerModal({onClose, onCreated}: Props) {
 
         {tab !== 'deploy' && (
           <div className="field">
-            <label>{tr('Имя', 'Name')}</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('Мой сервер', 'My server')} />
+            <label htmlFor="import-profile-name">{tr('Имя', 'Name')}</label>
+            <input id="import-profile-name" type="text" value={profileName} onChange={(e) => setName(e.target.value)} placeholder={tr('Мой сервер', 'My server')} />
           </div>
         )}
 

@@ -159,6 +159,11 @@ func (a *App) ImportLink(raw string, into backend.Server) (backend.Server, error
 		return backend.Server{}, err
 	}
 	merged := link.ApplyTo(into)
+	// The dialog suggests the link's name, but a local name chosen by the user
+	// must survive merging the connection parameters from the owner's link.
+	if name := strings.TrimSpace(into.Name); name != "" {
+		merged.Name = name
+	}
 	return a.store.Save(merged)
 }
 
@@ -411,16 +416,11 @@ func (a *App) ServerPeerAdd(id, name string) (*backend.GuestShare, error) {
 	if err != nil {
 		return nil, err
 	}
-	share, err := a.guestShare(srv, ssh, issued, false)
-	if err != nil {
-		return nil, err
-	}
-	share.Name = strings.TrimSpace(name)
-	return share, nil
+	return a.guestShare(srv, ssh, issued, name, false)
 }
 
-// ServerPeerShare re-issues an existing user's link and QR. name is only used to
-// label the allowlist entry of a user that predates it. includeVK puts the
+// ServerPeerShare re-issues an existing user's link and QR. name labels the
+// recipient profile and the allowlist entry of a user that predates it. includeVK puts the
 // owner's own VK call link into the link (off unless the owner asks).
 func (a *App) ServerPeerShare(id, pub, name string, includeVK bool) (*backend.GuestShare, error) {
 	srv, ssh, err := a.serverSSH(id)
@@ -431,12 +431,7 @@ func (a *App) ServerPeerShare(id, pub, name string, includeVK bool) (*backend.Gu
 	if err != nil {
 		return nil, err
 	}
-	share, err := a.guestShare(srv, ssh, issued, includeVK)
-	if err != nil {
-		return nil, err
-	}
-	share.Name = strings.TrimSpace(name)
-	return share, nil
+	return a.guestShare(srv, ssh, issued, name, includeVK)
 }
 
 // ServerPeerRemove deletes a user (their WireGuard peer and proxy access).
@@ -451,8 +446,8 @@ func (a *App) ServerPeerRemove(id, pub string) error {
 // guestShare turns an issued user config into the link + QR the UI shows. The
 // obfuscation in the link comes from what the server is actually running, not
 // only from the saved profile, since the user's client has to match it exactly.
-func (a *App) guestShare(srv backend.Server, ssh serversetup.SSHConfig, issued *serversetup.PeerIssued, includeVK bool) (*backend.GuestShare, error) {
-	in := backend.GuestLinkInput{ClientID: issued.ClientID, WgConf: issued.Conf, IncludeVK: includeVK}
+func (a *App) guestShare(srv backend.Server, ssh serversetup.SSHConfig, issued *serversetup.PeerIssued, name string, includeVK bool) (*backend.GuestShare, error) {
+	in := backend.GuestLinkInput{Name: name, ClientID: issued.ClientID, WgConf: issued.Conf, IncludeVK: includeVK}
 	if info, err := serversetup.GetShareInfo(ssh); err == nil && info.Known {
 		in.Mode, in.ObfProfile, in.ObfKey = info.Mode, info.ObfProfile, info.ObfKey
 	}
@@ -462,7 +457,7 @@ func (a *App) guestShare(srv backend.Server, ssh serversetup.SSHConfig, issued *
 	}
 	qr, _ := backend.QRDataURL(link) // best effort: the link still works if it's too long for a QR
 	return &backend.GuestShare{
-		Pub: issued.PublicKey, IP: issued.IP, Link: link, QR: qr,
+		Pub: issued.PublicKey, Name: strings.TrimSpace(name), IP: issued.IP, Link: link, QR: qr,
 		IncludesVK: includeVK && len(srv.VKLinks) > 0,
 	}, nil
 }

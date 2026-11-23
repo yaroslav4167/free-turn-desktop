@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/binary"
@@ -48,20 +49,30 @@ func psLiteral(value string) string { return "'" + strings.ReplaceAll(value, "'"
 
 // Encode scripts rather than interpolate paths into a cmd.exe command line.
 func runPowerShell(script string) (string, error) {
-	units := utf16.Encode([]rune("$ErrorActionPreference='Stop';" + script))
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return runPowerShellContext(ctx, script)
+}
+
+func runPowerShellContext(ctx context.Context, script string) (string, error) {
+	units := utf16.Encode([]rune("$ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false);" + script))
 	data := make([]byte, len(units)*2)
 	for i, unit := range units {
 		binary.LittleEndian.PutUint16(data[i*2:], unit)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand", base64.StdEncoding.EncodeToString(data))
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("Windows integration: %w: %s", err, strings.TrimSpace(string(out)))
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() != nil {
+			return "", fmt.Errorf("Windows integration: %w", ctx.Err())
+		}
+		return "", fmt.Errorf("Windows integration: %w: %s", err, strings.TrimSpace(stderr.String()+stdout.String()))
 	}
-	return strings.TrimSpace(string(out)), nil
+	// EncodedCommand may emit CLIXML diagnostics on stderr even on success.
+	// They are not part of the requested value (e.g. the autostart '1'/'0').
+	return strings.TrimSpace(stdout.String()), nil
 }
 
 func copyExecutable(source, target string) error {
@@ -152,9 +163,47 @@ func AutostartEnabled() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	out, err := runPowerShell("$t=Get-ScheduledTask -TaskName " + psLiteral(name) + " -ErrorAction SilentlyContinue;" +
-		"if($t -and $t.Description -eq " + psLiteral(managedLauncher) + " -and $t.Actions.Count -eq 1 -and $t.Actions[0].Execute -eq " + psLiteral(target) + "){[Console]::Write('1')}else{[Console]::Write('0')}")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	out, err := runPowerShellContext(ctx, autostartLookupScript(name)+
+		"if("+managedAutostartCondition(target)+" -and $t.Enabled){[Console]::Write('1')}else{[Console]::Write('0')}")
 	return out == "1", err
+}
+
+// Use the Task Scheduler COM API rather than the ScheduledTasks CIM module.
+// COM avoids module/WMI startup on every settings refresh, and reports missing
+// tasks separately from access or service failures.
+func autostartLookupScript(name string) string {
+	return "$s=New-Object -ComObject Schedule.Service;$s.Connect();$f=$s.GetFolder('\\');$t=$null;" +
+		"try{$t=$f.GetTask(" + psLiteral(name) + ")}catch{if($_.Exception.GetBaseException().HResult -ne -2147024894){throw}};"
+}
+
+func managedAutostartCondition(target string) string {
+	return "$t -and $t.Definition.RegistrationInfo.Description -eq " + psLiteral(managedLauncher) +
+		" -and $t.Definition.Actions.Count -eq 1 -and $t.Definition.Actions.Item(1).Type -eq 0" +
+		" -and $t.Definition.Actions.Item(1).Path -eq " + psLiteral(target) +
+		" -and $t.Definition.Actions.Item(1).Arguments -eq '--autostart'"
+}
+
+func autostartDefinitionScript(target, sid string) string {
+	return "$d=$s.NewTask(0);$d.RegistrationInfo.Description=" + psLiteral(managedLauncher) + ";" +
+		"$d.Principal.UserId=" + psLiteral(sid) + ";$d.Principal.LogonType=3;$d.Principal.RunLevel=1;" +
+		"$g=$d.Triggers.Create(9);$g.UserId=" + psLiteral(sid) + ";$g.Enabled=$true;" +
+		"$a=$d.Actions.Create(0);$a.Path=" + psLiteral(target) + ";$a.Arguments='--autostart';" +
+		"$a.WorkingDirectory=" + psLiteral(filepath.Dir(target)) + ";" +
+		"$d.Settings.Enabled=$true;$d.Settings.AllowDemandStart=$true;$d.Settings.StartWhenAvailable=$true;" +
+		"$d.Settings.DisallowStartIfOnBatteries=$false;$d.Settings.StopIfGoingOnBatteries=$false;" +
+		"$d.Settings.ExecutionTimeLimit='PT0S';$d.Settings.MultipleInstances=2;"
+}
+
+func autostartMutationScript(name, target, sid string, enabled bool) string {
+	script := autostartLookupScript(name) +
+		"if($t -and !(" + managedAutostartCondition(target) + ")){throw 'Task is not managed by FreeTurn'};"
+	if !enabled {
+		return script + "if($t){$f.DeleteTask(" + psLiteral(name) + ",0)}"
+	}
+	return script + autostartDefinitionScript(target, sid) +
+		"$null=$f.RegisterTaskDefinition(" + psLiteral(name) + ",$d,6," + psLiteral(sid) + ",$null,3,$null)"
 }
 
 func SetAutostart(enabled bool) error {
@@ -167,21 +216,21 @@ func SetAutostart(enabled bool) error {
 		return err
 	}
 	if enabled {
-		if _, err := Install(); err != nil {
+		source, err := os.Executable()
+		if err != nil {
 			return err
 		}
+		// An installed app needs no copy or Start Menu shortcut rewrite just to
+		// enable autostart. Portable builds still install a stable launch target.
+		if !strings.EqualFold(filepath.Clean(source), filepath.Clean(target)) {
+			if _, err := Install(); err != nil {
+				return err
+			}
+		}
 	}
-	script := "$t=Get-ScheduledTask -TaskName " + psLiteral(name) + " -ErrorAction SilentlyContinue;" +
-		"if($t -and ($t.Description -ne " + psLiteral(managedLauncher) + " -or $t.Actions.Count -ne 1 -or $t.Actions[0].Execute -ne " + psLiteral(target) + ")){throw 'Task is not managed by FreeTurn'};"
-	if enabled {
-		script += "$a=New-ScheduledTaskAction -Execute " + psLiteral(target) + " -Argument '--autostart';" +
-			"$g=New-ScheduledTaskTrigger -AtLogOn -User " + psLiteral(sid) + ";" +
-			"$p=New-ScheduledTaskPrincipal -UserId " + psLiteral(sid) + " -LogonType Interactive -RunLevel Highest;" +
-			"Register-ScheduledTask -TaskName " + psLiteral(name) + " -Action $a -Trigger $g -Principal $p -Description " + psLiteral(managedLauncher) + " -Force | Out-Null"
-	} else {
-		script += "if($t){Unregister-ScheduledTask -TaskName " + psLiteral(name) + " -Confirm:$false}"
-	}
-	_, err = runPowerShell(script)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err = runPowerShellContext(ctx, autostartMutationScript(name, target, sid, enabled))
 	return err
 }
 

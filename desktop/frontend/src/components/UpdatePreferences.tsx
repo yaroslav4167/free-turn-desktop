@@ -10,6 +10,7 @@ import ReleaseHistoryDialog from './ReleaseHistoryDialog'
 import {currentLanguage, tr} from '../language'
 import {readDismissedUpdate, saveDismissedUpdate, updateNoticeId} from '../updateNotice'
 import {updateProgress, UpdateAction} from '../updateProgress'
+import UpdateProgressBar from './UpdateProgressBar'
 
 function useUpdateState(interval: number, enabled = true) {
   const [state, setState] = useState<UpdateState | null>(null)
@@ -78,7 +79,7 @@ function UpdateDialog({initial, onClose, onOpen}: {initial:UpdateState; onClose:
       {(error || (!busy && state.error)) && <div className="notice error" role="alert">{error || state.error}</div>}
       {progress && <section className="update-task" aria-busy="true">
         <strong role="status">{progress.title}</strong>
-        <progress className="update-progress" aria-label={progress.title} max={100} value={progress.percent ?? undefined} />
+        <UpdateProgressBar key={progress.phase} label={progress.title} value={progress.value} />
         <p className="settings-note">{progress.transfer} {progress.speed} {progress.eta}</p>
         <p className="settings-note">{progress.detail}</p>
       </section>}
@@ -176,7 +177,7 @@ export default function UpdatePreferences({active, autoCheck, onAutoCheck, disab
             <strong role="status">{progress.title}</strong>
             {progress.percent !== null && <span className="mono">{progress.percent}%</span>}
           </div>
-          <progress className="update-progress" aria-label={progress.title} max={100} value={progress.percent ?? undefined} />
+          <UpdateProgressBar key={progress.phase} label={progress.title} value={progress.value} />
           {progress.transfer && (
             <div className="update-task-stats">
               <span>{progress.transfer}</span>

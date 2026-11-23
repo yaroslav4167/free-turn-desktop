@@ -108,8 +108,6 @@ func (a *App) connectOnLaunch(connect func(string) error) error {
 }
 
 func (a *App) DesktopSettings() (DesktopSettings, error) {
-	a.desktopMu.Lock()
-	defer a.desktopMu.Unlock()
 	autostart, err := integration.AutostartEnabled()
 	if err != nil {
 		return DesktopSettings{}, err
@@ -118,6 +116,8 @@ func (a *App) DesktopSettings() (DesktopSettings, error) {
 	if err != nil {
 		return DesktopSettings{}, err
 	}
+	a.desktopMu.Lock()
+	defer a.desktopMu.Unlock()
 	return DesktopSettings{
 		Language: a.preferences.Language, SystemLanguage: integration.SystemLanguage(),
 		Theme:       a.preferences.Theme,

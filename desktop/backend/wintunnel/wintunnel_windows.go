@@ -23,6 +23,7 @@ import (
 	"golang.org/x/sys/windows"
 	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 
+	"github.com/samosvalishe/free-turn-proxy/desktop/locale"
 	"github.com/samosvalishe/free-turn-proxy/internal/logx"
 	"github.com/samosvalishe/free-turn-proxy/internal/routemgr"
 	"github.com/samosvalishe/free-turn-proxy/mobile"
@@ -215,7 +216,7 @@ func ConnectWithOptions(configJSON, wgConfigText string, mtu int, options Connec
 		if routes != nil {
 			routes.Close()
 		}
-		return fmt.Errorf("create wintun adapter: %w", err)
+		return wintunAdapterError(err)
 	}
 	nativeTun, ok := dev.(*amtun.NativeTun)
 	if !ok {
@@ -424,6 +425,17 @@ func addRoutesPreservingLocal(adapter routeAdder, routes []*winipcfg.RouteData) 
 		}
 	}
 	return nil
+}
+
+func wintunAdapterError(err error) error {
+	cause := fmt.Errorf("create wintun adapter: %w", err)
+	if errors.Is(err, windows.ERROR_ACCESS_DENIED) || errors.Is(err, windows.ERROR_PRIVILEGE_NOT_HELD) || errors.Is(err, os.ErrPermission) {
+		return fmt.Errorf("%s (%w)", locale.Text(
+			"Не удалось создать VPN-адаптер: недостаточно прав. Закройте FreeTurn и запустите его от имени администратора: правой кнопкой по значку → «Запуск от имени администратора».",
+			"Cannot create the VPN adapter: insufficient permissions. Close FreeTurn, right-click its icon and select 'Run as administrator'.",
+		), cause)
+	}
+	return cause
 }
 
 func splitByFamily(addrs []netip.Addr) (v4, v6 []netip.Addr) {

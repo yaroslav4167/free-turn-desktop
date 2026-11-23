@@ -41,10 +41,11 @@ export function updateProgress(state: ProgressState | null, pending: UpdateActio
   const downloading = phase === 'downloading'
   const total = state && Number.isFinite(state.total) ? Math.max(0, state.total) : 0
   const received = state && Number.isFinite(state.received) ? Math.max(0, state.received) : 0
-  const percent = downloading && total > 0 ? Math.min(100, Math.floor(received / total * 100)) : null
+  const value = downloading && total > 0 ? Math.min(100, received / total * 100) : null
+  const percent = value === null ? null : Math.floor(value)
   const rate = state && Number.isFinite(state.bytesPerSecond) ? Math.max(0, state.bytesPerSecond) : 0
   return {
-    phase, ...info, percent,
+    phase, ...info, percent, value,
     transfer: downloading ? `${formatUpdateBytes(Math.min(received, total || received))} ${tr('из', 'of')} ${total ? formatUpdateBytes(total) : '…'}` : '',
     speed: downloading ? rate > 0 ? `${formatUpdateBytes(rate)}${tr('/с', '/s')}` : tr('Скорость рассчитывается…', 'Estimating speed…') : '',
     eta: downloading ? formatUpdateETA(state?.remainingSeconds ?? -1) : '',

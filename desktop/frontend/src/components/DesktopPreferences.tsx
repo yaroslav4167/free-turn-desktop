@@ -1,5 +1,6 @@
 import {useEffect, useState, useSyncExternalStore} from 'react'
 import {desktop, DesktopSettings} from '../desktop'
+import {desktopSettings} from '../desktopSettings'
 import Icon from './Icon'
 import UpdatePreferences from './UpdatePreferences'
 import {backend} from '../../wailsjs/go/models'
@@ -20,7 +21,7 @@ function PreferenceSwitch({id, title, hint, checked, disabled, onChange}: {
 }
 
 export default function DesktopPreferences({version, active, servers, selectedServerId, onProfilesRestored, onDialogChange}: {version: string; active: boolean; servers: backend.Server[]; selectedServerId?: string; onProfilesRestored: () => Promise<void>; onDialogChange:(open:boolean)=>void}) {
-  const [settings, setSettings] = useState<DesktopSettings | null>(null)
+  const [settings, setSettings] = useState<DesktopSettings | null>(() => desktopSettings.snapshot())
   const theme = useSyncExternalStore(subscribeTheme, themeSnapshot)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -29,8 +30,8 @@ export default function DesktopPreferences({version, active, servers, selectedSe
   const startupProfileId=resolveStartupProfile(servers,settings?.autoConnectServerId||'',selectedServerId)
   const savedStartupAvailable=!!settings?.autoConnectServerId&&servers.some(server=>server.id===settings.autoConnectServerId)
   const missingStartupProfile=!!settings&&!!(settings.autoConnect||settings.autoConnectServerId)&&!savedStartupAvailable
-  const refresh = () => desktop().DesktopSettings().then(setSettings)
-  useEffect(() => { refresh().catch(e=>setError(String(e))) }, [])
+  const refresh = () => desktopSettings.load(true).then(setSettings)
+  useEffect(() => { desktopSettings.load().then(setSettings).catch(e=>setError(String(e))) }, [])
   useEffect(() => { if (active) desktop().ProfileRecoveryNotice().then(setRecovery).catch(() => {}) }, [active])
   useEffect(() => { if (!active) { setDiagnosticsOpen(false); onDialogChange(false) } }, [active, onDialogChange])
   const showDiagnostics = (open:boolean) => { setDiagnosticsOpen(open); onDialogChange(open) }
