@@ -99,6 +99,9 @@ func (a *App) InstallUpdate() error {
 	if os.Geteuid() == 0 {
 		return errors.New("обновление клиента нельзя запускать от root")
 	}
+	if err := integration.CheckUpdatePermissions(); err != nil {
+		return err
+	}
 	if !a.updateInstallMu.TryLock() {
 		return errors.New("установка уже выполняется")
 	}

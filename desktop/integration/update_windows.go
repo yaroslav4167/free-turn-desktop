@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/samosvalishe/free-turn-proxy/desktop/locale"
 	"github.com/samosvalishe/free-turn-proxy/desktop/updates"
 	"golang.org/x/sys/windows"
 )
@@ -21,6 +22,23 @@ import (
 type UpdateResult struct {
 	Message    string `json:"message"`
 	BackupPath string `json:"backupPath"`
+}
+
+// Release executables request requireAdministrator. A non-elevated updater
+// cannot start them with CreateProcess, including the --install-desktop step.
+// Check while the old GUI and VPN are still alive, before downloading or replacing files.
+func CheckUpdatePermissions() error {
+	return requireWindowsUpdateElevation(windows.GetCurrentProcessToken().IsElevated())
+}
+
+func requireWindowsUpdateElevation(elevated bool) error {
+	if elevated {
+		return nil
+	}
+	return fmt.Errorf("%s (%w)", locale.Text(
+		"Для установки обновления нужны права администратора. Закройте FreeTurn через меню трея, запустите его через «Запуск от имени администратора» и повторите обновление. Профили и настройки сохранятся.",
+		"Administrator privileges are required to install this update. Quit FreeTurn from the tray menu, start it using 'Run as administrator', then retry the update. Profiles and settings will be preserved.",
+	), windows.ERROR_ELEVATION_REQUIRED)
 }
 
 func updateResultPath() (string, error) {
@@ -56,6 +74,9 @@ func saveUpdateResult(result UpdateResult) {
 // Windows locks running executables. Use a separate OLD updater copy and keep
 // the old GUI alive until it signals readiness. Stdin EOF gates installation.
 func StartUpdateWorker(stage string) (*os.File, error) {
+	if err := CheckUpdatePermissions(); err != nil {
+		return nil, err
+	}
 	target, err := InstalledPath()
 	if err != nil {
 		return nil, err
@@ -154,6 +175,9 @@ func AcknowledgeUpdate() {
 }
 
 func runWindowsUpdate(stage, parentID, fallback string) error {
+	if err := CheckUpdatePermissions(); err != nil {
+		return err
+	}
 	if !filepath.IsAbs(fallback) {
 		return errors.New("invalid fallback executable")
 	}
@@ -226,12 +250,24 @@ func runWindowsUpdate(stage, parentID, fallback string) error {
 		}
 	}
 	rollback := updates.RestorePrevious(stage, targetDir)
-	result.Message = fmt.Sprintf("Новая версия не запустилась; откат: %v; %v", err, rollback)
+	result.Message = windowsUpdateRollbackMessage(err, rollback)
 	saveUpdateResult(result)
 	if rollback != nil {
 		return errors.New(result.Message)
 	}
 	return restartWindows(fallback)
+}
+
+func windowsUpdateRollbackMessage(startErr, rollbackErr error) string {
+	if rollbackErr == nil {
+		return fmt.Sprintf("%s: %v", locale.Text(
+			"Новая версия не запустилась; выполнен откат",
+			"The new version did not start; the previous version was restored",
+		), startErr)
+	}
+	return fmt.Sprintf("%s: %v; %s: %v", locale.Text(
+		"Новая версия не запустилась", "The new version did not start",
+	), startErr, locale.Text("Ошибка отката", "Rollback failed"), rollbackErr)
 }
 
 func restartWindows(target string) error {
