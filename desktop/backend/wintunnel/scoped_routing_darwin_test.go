@@ -72,3 +72,25 @@ func TestMacPrivilegedScopedRouting(t *testing.T) {
 	}
 	t.Logf("unbound -> %s; bound relay -> %s; UDP route lookup succeeds", state.name, state.dev4)
 }
+
+// Regression for IPv4-only interface addresses with IPv6 AllowedIPs. Use a
+// documentation prefix rather than changing the host's IPv6 default route.
+func TestMacPrivilegedIPv6RouteWithIPv4Address(t *testing.T) {
+	if os.Getenv("FREETURN_PRIVILEGED_TESTS") != "1" || os.Geteuid() != 0 {
+		t.Skip("requires explicit opt-in on an isolated privileged macOS runner")
+	}
+	params := &mobile.TunnelParams{MTU: 1280, Addresses: "198.19.255.1/32", AllowedIPs: "2001:db8::/32"}
+	state, dev, err := prepareHelper(params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	defer state.cleanup()
+	if err := state.installRoutes(params); err != nil {
+		t.Fatal(err)
+	}
+	out, err := command("/sbin/route", "-n", "get", "-inet6", "2001:db8::1")
+	if err != nil || !strings.Contains(out, "interface: "+state.name) {
+		t.Fatalf("IPv6 route must use VPN interface: %s %v", out, err)
+	}
+}

@@ -15,7 +15,8 @@ import (
 	"github.com/samosvalishe/free-turn-proxy/desktop/backend/vpnservice"
 )
 
-const helperProtocol = 3
+// Version 4 requires IPv6 interface initialization for IPv4-only profiles.
+const helperProtocol = 4
 
 // RunService stays idle between connections. Each session owns its own utun,
 // routes and DNS; loss of the client or daemon shutdown releases all three.

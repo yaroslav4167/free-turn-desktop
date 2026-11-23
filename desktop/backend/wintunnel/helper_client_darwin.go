@@ -125,7 +125,7 @@ func dialPersistentHelper() (*net.UnixConn, error) {
 		}
 	}
 	// Older installed helpers keep running across app updates. Upgrade the
-	// system copy once when cancellation/initialization support is missing.
+	// system copy once when required tunnel initialization support is missing.
 	if err := requireHelperProtocol(func() (int, error) { return installedHelperProtocol(uid) }, func() error { return vpnservice.Configure(false) }); err != nil {
 		return nil, err
 	}

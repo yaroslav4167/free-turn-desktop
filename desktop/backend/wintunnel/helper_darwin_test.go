@@ -102,3 +102,23 @@ func TestMacProtectorBindsBothSocketFamilies(t *testing.T) {
 		}
 	}
 }
+
+func TestMacIPv6RoutesRequireInterfaceAddress(t *testing.T) {
+	for _, tc := range []struct {
+		name, addresses, allowed, want string
+	}{
+		{"IPv4 only", "10.0.0.2/32", "0.0.0.0/0", "10.0.0.2/32"},
+		{"IPv6 full tunnel", "10.0.0.2/32", "0.0.0.0/0,::/0", "10.0.0.2/32,fe80::1/64"},
+		{"IPv6 subnet", "10.0.0.2/32", "2001:db8::/32", "10.0.0.2/32,fe80::1/64"},
+		{"existing IPv6", "10.0.0.2/32,fd00::2/128", "::/0", "10.0.0.2/32,fd00::2/128"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			addresses, _ := parsePrefixes(tc.addresses)
+			allowed, _ := parsePrefixes(tc.allowed)
+			want, _ := parsePrefixes(tc.want)
+			if got := darwinInterfaceAddresses(addresses, allowed); !reflect.DeepEqual(got, want) {
+				t.Fatalf("addresses: %v, want %v", got, want)
+			}
+		})
+	}
+}

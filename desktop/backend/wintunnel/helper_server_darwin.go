@@ -370,7 +370,8 @@ func prepareHelperContext(ctx context.Context, params *mobile.TunnelParams) (*he
 	if err != nil || len(addresses) == 0 || len(addresses) > 16 {
 		return nil, nil, errors.New("VPN interface address is missing or invalid")
 	}
-	if _, err := parsePrefixes(params.AllowedIPs); err != nil {
+	allowed, err := parsePrefixes(params.AllowedIPs)
+	if err != nil {
 		return nil, nil, err
 	}
 	if _, err := parseDNS(params.DNS); err != nil {
@@ -398,7 +399,7 @@ func prepareHelperContext(ctx context.Context, params *mobile.TunnelParams) (*he
 		return nil, nil, err
 	}
 	state := &helperState{ctx: ctx, name: name, dev4: physical4.device, dev6: physical6.device, physical4: physical4, physical6: physical6}
-	for _, address := range addresses {
+	for _, address := range darwinInterfaceAddresses(addresses, allowed) {
 		var args []string
 		if address.Addr().Is4() {
 			args = []string{name, "inet", address.Addr().String(), address.Addr().String(), "netmask", "255.255.255.255", "alias"}
@@ -415,6 +416,24 @@ func prepareHelperContext(ctx context.Context, params *mobile.TunnelParams) (*he
 		return nil, nil, err
 	}
 	return state, dev, nil
+}
+
+// Darwin needs an IPv6 address on utun before accepting IPv6 interface routes.
+// A link-local address enables routing even for IPv4-only WireGuard addresses;
+// keep IPv6 AllowedIPs installed so traffic cannot bypass the VPN.
+func darwinInterfaceAddresses(addresses, allowed []netip.Prefix) []netip.Prefix {
+	for _, address := range addresses {
+		if address.Addr().Is6() {
+			return addresses
+		}
+	}
+	for _, prefix := range allowed {
+		if prefix.Addr().Is6() {
+			result := append([]netip.Prefix(nil), addresses...)
+			return append(result, netip.MustParsePrefix("fe80::1/64"))
+		}
+	}
+	return addresses
 }
 
 // Keep the physical default routes. Two more-specific halves carry full-tunnel

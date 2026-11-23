@@ -226,20 +226,20 @@ v3.0.6). Если окно недоступно, используется вне
 **Linux:** установите пакеты разработки GTK3 и WebKit2GTK 4.1, затем выполните:
 
 ```sh
-VERSION=v3.0.9 sh packaging/linux/build-desktop.sh
+VERSION=v3.0.10 sh packaging/linux/build-desktop.sh
 ```
 
 **Windows:** установите нативные зависимости Wails и запустите в PowerShell 7:
 
 ```powershell
-$env:RELEASE_TAG = 'v3.0.9'
+$env:RELEASE_TAG = 'v3.0.10'
 ./packaging/windows/build-desktop.ps1
 ```
 
 **macOS:** установите Xcode Command Line Tools, затем выполните:
 
 ```sh
-RELEASE_TAG=v3.0.9 sh packaging/macos/build-desktop.sh
+RELEASE_TAG=v3.0.10 sh packaging/macos/build-desktop.sh
 ```
 
 `UPDATE_REPOSITORY` по умолчанию указывает на `yaroslav4167/free-turn-desktop`.

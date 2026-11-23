@@ -33,6 +33,13 @@ def application():
     return svg('<defs>'+''.join(gradients)+'</defs><g transform="translate(256 256) scale(1.04) translate(-256 -256)">'+''.join(paths)+'</g>')
 
 
+def dock_icon():
+    # Square macOS application artwork with transparent margins and a dark tile.
+    artwork = application().split('>', 1)[1].rsplit('</svg>', 1)[0]
+    return svg('<rect x="48" y="48" width="416" height="416" rx="94" fill="#172b4d"/>'
+               '<g transform="translate(51.2 51.2) scale(0.8)">' + artwork + '</g>', '0 0 512 512')
+
+
 def monochrome(color, dense=False):
     source = ET.parse(ASSETS / 'branding-source/ic_launcher_monochrome.xml')
     paths = []
@@ -60,15 +67,16 @@ def ico(source, sizes):
 def main():
     assert (ROOT / 'docs/licenses/android-branding-GPL-3.0.txt').is_file(), 'upstream artwork license is required'
     (ASSETS / 'icon.svg').write_text(application())
+    (ASSETS / 'icon-dock.svg').write_text(dock_icon())
     (ASSETS / 'interface.svg').write_text(monochrome('#eff4ff'))
     for variant, color in [('dark', '#273247'), ('light', '#eef3ff')]:
         path = ASSETS / f'tray-{variant}.svg'
         path.write_text(monochrome(color, dense=True))
         (ASSETS / f'tray-{variant}-64.png').write_bytes(render(path, 64))
         (ASSETS / f'tray-{variant}.ico').write_bytes(ico(path, (16, 20, 22, 24, 32, 40, 48, 64)))
-    for size, path in [(512, ASSETS / 'icon.png'), (64, ASSETS / 'icon-64.png'),
-                       (1024, ROOT / 'desktop/build/appicon.png')]:
+    for size, path in [(512, ASSETS / 'icon.png'), (64, ASSETS / 'icon-64.png')]:
         path.write_bytes(render(ASSETS / 'icon.svg', size))
+    (ROOT / 'desktop/build/appicon.png').write_bytes(render(ASSETS / 'icon-dock.svg', 1024))
     (ROOT / 'desktop/build/windows/icon.ico').write_bytes(ico(ASSETS / 'icon.svg', (16, 24, 32, 48, 64, 128, 256)))
     (ROOT / 'desktop/frontend/public/freeturn.svg').write_bytes((ASSETS / 'interface.svg').read_bytes())
     (ROOT / 'desktop/frontend/public/freeturn-light.svg').write_text(monochrome('#2f4677'))

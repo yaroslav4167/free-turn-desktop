@@ -109,7 +109,7 @@ jobs:
       - name: Exercise utun routes and persistent helper
         run: |
           go test -c ./desktop/backend/wintunnel -o "$RUNNER_TEMP/wintunnel.test"
-          sudo -n env FREETURN_PRIVILEGED_TESTS=1 "$RUNNER_TEMP/wintunnel.test" -test.run '^TestMacPrivilegedScopedRouting$' -test.v -test.timeout 45s
+          sudo -n env FREETURN_PRIVILEGED_TESTS=1 "$RUNNER_TEMP/wintunnel.test" -test.run '^TestMacPrivileged(ScopedRouting|IPv6RouteWithIPv4Address)$' -test.v -test.timeout 45s
           go build -o "$RUNNER_TEMP/freeturn-vpn-helper" ./cmd/macos-vpn-helper
           codesign --force --sign - --timestamp=none "$RUNNER_TEMP/freeturn-vpn-helper"
           sudo -n env FREETURN_PRIVILEGED_TESTS=1 FREETURN_TEST_SERVICE_UID="$(id -u)" FREETURN_TEST_HELPER_BINARY="$RUNNER_TEMP/freeturn-vpn-helper" "$RUNNER_TEMP/wintunnel.test" -test.run '^TestMacPrivilegedPersistentService$' -test.v -test.timeout 90s
