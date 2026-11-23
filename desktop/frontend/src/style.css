@@ -778,7 +778,7 @@ select optgroup {
   border-radius: 10px;
   width: 100%;
   max-width: 380px;
-  margin: 0 auto 14px;
+  margin: 14px auto;
 }
 
 .qr-box img {
@@ -874,7 +874,14 @@ select optgroup {
 .modal .field select { text-overflow: ellipsis; }
 .modal-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
 .modal .modal-heading h2 { margin: 0; }
-.modal .modal-close { width: var(--settings-control-height); flex-shrink: 0; font-size: 20px; }
+.modal .modal-close {
+  width: var(--settings-control-height);
+  height: var(--settings-control-height);
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 1;
+}
+.modal-close svg { display: block; flex-shrink: 0; }
 .tabs .tab { font: inherit; background: none; border: 0; border-bottom: 2px solid transparent; min-height: var(--settings-control-height); cursor: pointer; }
 .tabs .tab.active { border-bottom-color: var(--accent); }
 .wizard-step { display: grid; gap: 14px; min-width: 0; }

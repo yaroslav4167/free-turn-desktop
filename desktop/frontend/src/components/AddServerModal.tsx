@@ -1,3 +1,4 @@
+import Icon from './Icon'
 import {useEffect, useState} from 'react'
 import {backend, ImportLink, NewServer, ParseLink, SaveServer} from '../api'
 import CreateServerWizard from './CreateServerWizard'
@@ -71,7 +72,7 @@ export default function AddServerModal({onClose, onCreated}: Props) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div ref={dialog} tabIndex={-1} className={'modal'+(tab==='deploy'?' deployment-modal':'')} role="dialog" aria-modal="true" aria-labelledby="add-server-title" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-heading"><h2 id="add-server-title">{tr('Добавить сервер', 'Add server')}</h2><button type="button" className="btn ghost modal-close" aria-label={tr('Закрыть', 'Close')} onClick={onClose}>×</button></div>
+        <div className="modal-heading"><h2 id="add-server-title">{tr('Добавить сервер', 'Add server')}</h2><button type="button" className="btn ghost modal-close" aria-label={tr('Закрыть', 'Close')} onClick={onClose}><Icon name="close" size={18} /></button></div>
         <div className="tabs" role="group" aria-label={tr('Способ добавления сервера', 'How to add the server')}>
           <button type="button" className={'tab' + (tab === 'link' ? ' active' : '')} aria-pressed={tab==='link'} onClick={() => setTab('link')}>
             {tr('Вставить ссылку', 'Paste a link')}

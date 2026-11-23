@@ -18,7 +18,7 @@ export default function DiagnosticsDialog({recovery, onClose, onRestored}: {reco
     <div ref={dialog} tabIndex={-1} className="modal diagnostics-dialog" role="dialog" aria-modal="true" aria-labelledby="diagnostics-dialog-title" onClick={e=>e.stopPropagation()}>
       <div className="modal-heading">
         <h2 id="diagnostics-dialog-title">{tr('Диагностика и восстановление', 'Diagnostics and recovery')}</h2>
-        <button className="btn ghost modal-close" aria-label={tr('Закрыть', 'Close')} onClick={onClose}>×</button>
+        <button className="btn ghost modal-close" aria-label={tr('Закрыть', 'Close')} onClick={onClose}><Icon name="close" size={18} /></button>
       </div>
       {error && <div className="notice error" role="alert">{error}</div>}
       {notice && <p className="notice info" role="status">{notice === 'restored' ? tr('Профили восстановлены из резервной копии.', 'Profiles restored from backup.') : notice === 'recovered' ? tr('Профили восстановлены из резервной копии. Повреждённый файл сохранён отдельно.', 'Profiles recovered from backup. The damaged file was preserved separately.') : tr('Файл профилей повреждён; исходные данные сохранены. Импортируйте профили или восстановите резервную копию.', 'The profile file is damaged; original data was preserved. Import profiles or restore a backup.')}</p>}

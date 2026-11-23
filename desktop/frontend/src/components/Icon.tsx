@@ -1,7 +1,8 @@
 export type IconName =
-  'power' | 'stop' | 'servers' | 'logs' | 'settings' | 'plus' | 'arrow' | 'download' | 'upload' | 'tray' | 'shield' | 'wrench'
+  'close' | 'power' | 'stop' | 'servers' | 'logs' | 'settings' | 'plus' | 'arrow' | 'download' | 'upload' | 'tray' | 'shield' | 'wrench'
 
 const paths: Record<IconName, string> = {
+  close: 'M6 6l12 12 M18 6L6 18',
   power: 'M12 3v9 M6.3 5.8a8 8 0 1 0 11.4 0',
   stop: 'M8 6h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z',
   servers: 'M4 4h16v6H4z M4 14h16v6H4z M7 7h.01 M7 17h.01 M11 7h6 M11 17h6',

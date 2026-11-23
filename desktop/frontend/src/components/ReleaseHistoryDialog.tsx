@@ -1,3 +1,4 @@
+import Icon from './Icon'
 import {useEffect, useState} from 'react'
 import {createPortal} from 'react-dom'
 import {BrowserOpenURL} from '../api'
@@ -22,7 +23,7 @@ export default function ReleaseHistoryDialog({repository, onClose}: {repository:
     <div ref={dialog} tabIndex={-1} className="modal update-dialog release-history-dialog" role="dialog" aria-modal="true" aria-labelledby="release-history-title" onClick={e=>e.stopPropagation()}>
       <div className="modal-heading">
         <h2 id="release-history-title">{tr('История обновлений', 'Update history')}</h2>
-        <button className="btn ghost modal-close" aria-label={tr('Закрыть', 'Close')} onClick={onClose}>×</button>
+        <button className="btn ghost modal-close" aria-label={tr('Закрыть', 'Close')} onClick={onClose}><Icon name="close" size={18} /></button>
       </div>
       {loading && <p role="status">{tr('Загрузка истории…', 'Loading update history…')}</p>}
       {error && <div className="notice error" role="alert">{error} <button className="btn small" onClick={()=>setAttempt(value=>value+1)}>{tr('Повторить', 'Retry')}</button></div>}

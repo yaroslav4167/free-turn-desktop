@@ -72,7 +72,7 @@ function UpdateDialog({initial, onClose, onOpen}: {initial:UpdateState; onClose:
     <div ref={dialog} tabIndex={-1} className="modal update-dialog" role="dialog" aria-modal="true" aria-labelledby="update-dialog-title" onClick={e=>e.stopPropagation()}>
       <div className="modal-heading">
         <h2 id="update-dialog-title">{state.currentKnown ? tr('Доступно обновление', 'Update available') : tr('Доступен стабильный релиз', 'Stable release available')} FreeTurn {state.latestVersion}</h2>
-        <button className="btn ghost modal-close" aria-label={tr('Скрыть уведомление об обновлении', 'Dismiss update notification')} onClick={close}>×</button>
+        <button className="btn ghost modal-close" aria-label={tr('Скрыть уведомление об обновлении', 'Dismiss update notification')} onClick={close}><Icon name="close" size={18} /></button>
       </div>
       {state.releaseNotes?.trim() ? <ReleaseNotesContent text={state.releaseNotes} /> : <p className="settings-note">{tr('Описание изменений не опубликовано.', 'Release notes have not been published.')}</p>}
       {(error || (!busy && state.error)) && <div className="notice error" role="alert">{error || state.error}</div>}
