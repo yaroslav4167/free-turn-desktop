@@ -1,5 +1,6 @@
 //go:build darwin
 #import <Cocoa/Cocoa.h>
+#import <objc/runtime.h>
 #include <stdatomic.h>
 static void applyStatusIcon(void);
 extern void freeturn_tray_action(int action);
@@ -45,6 +46,22 @@ static void applyStatusIcon(void) {
  statusItem.button.imagePosition=NSImageOnly;
  statusItem.button.title=@"";
 }
+// Wails v2 has no reopen callback. Add the optional AppKit delegate method
+// without replacing the delegate or any implementation supplied by Wails.
+static BOOL handleDockReopen(id delegate, SEL selector, NSApplication *app, BOOL hasVisibleWindows) {
+ freeturn_tray_action(1);
+ return NO; // ShowWindow handles showing, activation and deminiaturization.
+}
+static void installDockReopenHandler(id delegate) {
+ if(!delegate) return;
+ Class cls=object_getClass(delegate);
+ SEL selector=@selector(applicationShouldHandleReopen:hasVisibleWindows:);
+ if(class_getInstanceMethod(cls,selector)) return;
+ struct objc_method_description method=protocol_getMethodDescription(@protocol(NSApplicationDelegate),selector,NO,YES);
+ if(method.types) class_addMethod(cls,selector,(IMP)handleDockReopen,method.types);
+}
+static void bindDockReopen(void) { installDockReopenHandler(NSApp.delegate); }
+
 // Wails routes the native Quit role through OnBeforeClose. When close-to-tray
 // is enabled that would hide the app instead of quitting. Route Cmd+Q through
 // the same explicit Quit callback as the status-menu action.
@@ -63,8 +80,9 @@ void freeturn_tray_start(const char *title, const char *open, const char *quit, 
   NSData *iconData=[NSData dataWithBytes:icon length:(NSUInteger)length];
  dispatch_async(dispatch_get_main_queue(), ^{
   target=[FreeTurnTrayTarget new];
-  launchObserver=[[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationDidFinishLaunchingNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) { bindQuitShortcut(); }];
+  launchObserver=[[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationDidFinishLaunchingNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) { bindQuitShortcut(); bindDockReopen(); }];
   bindQuitShortcut();
+  bindDockReopen();
    statusItem=[[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
    darkStatusData=iconData;lightStatusData=iconData;statusTemplate=YES;
    [statusItem.button addObserver:target forKeyPath:@"effectiveAppearance" options:0 context:NULL];watchingAppearance=YES;
